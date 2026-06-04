@@ -59,6 +59,8 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - NEW-TABLE GRANTS: `takt_api` is a non-superuser (no BYPASS RLS). After `drizzle-kit migrate`, apply the manual SQL in `packages/db/migrations/manual/` for RLS policies + GRANTs. Default privileges auto-grant future tables (see the role migration).
 - oRPC OUTPUT SCHEMAS STRIP FIELDS: any handler-returned field not declared in the output Zod schema is silently dropped. Declare every field you return.
 - R2 IS DEFERRED: object storage (site-check-in photos) is wired only when the remote-clock photo feature lands (Phase 1). Do not add the aws-sdk dependency until then.
+- UNUSED VARIABLES IN TESTS: prefix with `_` (e.g. `_profileB`) — the ESLint `varsIgnorePattern: '^_'` rule suppresses them. Never use `void expr` as a lint workaround.
+- RLS VITEST ASSERTIONS: assert RLS `WITH CHECK` violations as `.rejects.toMatchObject({ cause: { code: '42501' } })` — Drizzle wraps postgres.js errors as `DrizzleQueryError { cause: PostgresError { code } }`. A regex on the message string is fragile by comparison; `'42501'` is the stable SQLSTATE for `INSUFFICIENT_PRIVILEGE`.
 
 ## Design system (locked)
 "Precision / Takt Grid" personality on the shadcn `luma` preset. Init the admin with `npx shadcn@latest init --preset luma`. Warm-paper light theme (bg `#FBFAF8`, ink `#1A1916`) + andon-orange accent `#E8590C` (live/CTA ONLY, never warning); success `#2F7D54`, warning `#B86E00`, danger `#C0392B`; dark "cockpit" peer theme `#16150F`. Fonts: Space Grotesk (heading) + Inter (body) + JetBrains Mono (all numerics, tabular). Icons: Phosphor (Regular, stroke 1.5), one library only. Tokens are the single source in `@takt/ui-tokens` feeding shadcn-web and NativeWind-native. Full spec: see the lwiki artifact `drafts/artifacts/2026-06-04/takt/design/design-system.md`.
@@ -68,6 +70,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - `pnpm --filter @takt/db db:generate` then `db:migrate`, then apply `packages/db/migrations/manual/*.sql` for RLS + roles.
 - `pnpm dev` runs all apps via turbo. Admin on :3001, api on :3000, Expo on :8081.
 - `pnpm check-types` and `pnpm lint` must pass before any commit.
+- Before implementing any feature, run `pnpm check-types && pnpm lint` and note any pre-existing failures. Fix pre-existing failures in a separate commit before the feature work begins; do NOT widen their fix beyond the minimum required to make the baseline green.
 
 ## Build process
 Built feature-by-feature via the Archon `piv-system-evolution` PIV loop (plan -> implement -> validate, four human gates -> draft PR). Foundational slices (data model, roles, RLS) land before clock modes; geofence + overtime features get the heaviest gate scrutiny. Decompose work into PR-sized GitHub issues. See the PRD: `drafts/artifacts/2026-06-04/takt/takt-prd.md` in the lwiki vault.
