@@ -52,6 +52,9 @@ export default [
     plugins: { '@typescript-eslint': tseslint },
     rules: {
       ...tseslint.configs.recommended.rules,
+      // Base no-redeclare is a false positive for the Zod `const Foo + type Foo`
+      // declaration-merging pattern; TS itself enforces the real constraint.
+      'no-redeclare': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
