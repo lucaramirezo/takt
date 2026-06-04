@@ -1,7 +1,7 @@
 import { ORPCError } from '@orpc/server'
 import { type Database, type OrgCtx, type Tx, employeeProfile, timeEntry, withOrgCtx } from '@takt/db'
-import type { KioskPunchInput, PunchSubmitInput, PunchSubmitOutput } from '@takt/domain'
-import { and, eq } from 'drizzle-orm'
+import type { KioskPunchInput, PunchStatusOutput, PunchSubmitInput, PunchSubmitOutput } from '@takt/domain'
+import { and, desc, eq } from 'drizzle-orm'
 import { verifyPin } from '../lib/crypto'
 
 interface InsertTimeEntryParams {
@@ -76,6 +76,27 @@ export async function submitPunch(db: Database, ctx: OrgCtx, input: PunchSubmitI
       nfcTagId: input.nfcTagId,
       photoRef: input.photoRef,
     })
+  })
+}
+
+export async function getPunchStatus(db: Database, ctx: OrgCtx): Promise<PunchStatusOutput> {
+  return withOrgCtx(db, ctx, async (tx) => {
+    const [profile] = await tx
+      .select({ id: employeeProfile.id })
+      .from(employeeProfile)
+      .where(and(eq(employeeProfile.userId, ctx.userId), eq(employeeProfile.orgId, ctx.orgId)))
+      .limit(1)
+    if (!profile) throw new ORPCError('NOT_FOUND', { message: 'No employee profile for this user in the active organization' })
+    const [last] = await tx
+      .select({ type: timeEntry.type, recordedAtServer: timeEntry.recordedAtServer })
+      .from(timeEntry)
+      .where(and(eq(timeEntry.orgId, ctx.orgId), eq(timeEntry.employeeId, profile.id)))
+      .orderBy(desc(timeEntry.recordedAtServer))
+      .limit(1)
+    if (!last) return { state: 'clocked_out', since: null, lastEntryType: null }
+    const state =
+      last.type === 'break_start' ? 'on_break' : last.type === 'clock_out' ? 'clocked_out' : 'clocked_in'
+    return { state, since: last.recordedAtServer.toISOString(), lastEntryType: last.type }
   })
 }
 

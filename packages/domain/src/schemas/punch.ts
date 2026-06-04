@@ -33,3 +33,14 @@ export const PunchSubmitOutput = z.object({
   irregularities: z.array(z.string()).default([]),
 })
 export type PunchSubmitOutput = z.infer<typeof PunchSubmitOutput>
+
+export const punchStateSchema = z.enum(['clocked_in', 'clocked_out', 'on_break'])
+export type PunchState = z.infer<typeof punchStateSchema>
+
+/** Derived current clock state for a worker. `since` = recordedAtServer of the most recent entry. */
+export const PunchStatusOutput = z.object({
+  state: punchStateSchema,
+  since: z.string().datetime().nullable(),
+  lastEntryType: punchTypeSchema.nullable(),
+})
+export type PunchStatusOutput = z.infer<typeof PunchStatusOutput>

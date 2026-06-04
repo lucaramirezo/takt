@@ -1,5 +1,6 @@
 import {
   KioskPunchInput,
+  PunchStatusOutput,
   PunchSubmitInput,
   PunchSubmitOutput,
   RegisterDeviceInput,
@@ -10,7 +11,7 @@ import {
 import { authed, kioskAuthed, pub, requirePermission } from './orpc'
 import { registerDevice } from './services/device'
 import { setEmployeePin } from './services/employee'
-import { submitKioskPunch, submitPunch } from './services/punch'
+import { getPunchStatus, submitKioskPunch, submitPunch } from './services/punch'
 
 const health = pub.handler(() => ({ ok: true as const, service: 'takt-api' as const }))
 
@@ -27,6 +28,12 @@ const punchSubmit = authed
       },
       input,
     ),
+  )
+
+const punchStatus = authed
+  .output(PunchStatusOutput)
+  .handler(({ context }) =>
+    getPunchStatus(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }),
   )
 
 const punchKiosk = kioskAuthed
@@ -52,7 +59,7 @@ const employeePinSet = requirePermission('employee', 'set_pin')
 
 export const router = {
   health,
-  time: { punch: { submit: punchSubmit, kiosk: punchKiosk } },
+  time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus } },
   device: { register: deviceRegister },
   employee: { pin: { set: employeePinSet } },
 }
