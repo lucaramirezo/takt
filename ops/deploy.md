@@ -13,7 +13,7 @@ remote-clock photo feature lands. Secrets live on the box at `/etc/takt/*.env` (
 ```bash
 # from the repo root, build the api image context and ship it
 rsync -az --delete --exclude node_modules --exclude .git ./ vpsus:/opt/takt/src/
-ssh vpsus 'cd /opt/takt/src && docker build -f services/api/Dockerfile -t takt-api:$(date +%Y%m%d-%H%M) -t takt-api:latest .'
+ssh vpsus 'cd /opt/takt/src && docker build -f apps/api/Dockerfile -t takt-api:$(date +%Y%m%d-%H%M) -t takt-api:latest .'
 # run migrations (drizzle-kit migrate + the manual RLS SQL) then recreate
 ssh vpsus 'cd /opt/takt/src && docker compose -f ops/vpsus/docker-compose.yml up -d --no-deps api caddy'
 ```
