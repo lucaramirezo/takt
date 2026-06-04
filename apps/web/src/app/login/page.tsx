@@ -41,7 +41,7 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
       <h1 className="text-2xl font-semibold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-        takt<span style={{ color: 'var(--accent)' }}>.</span>
+        takt<span style={{ color: 'var(--primary)' }}>.</span>
       </h1>
       <p className="mt-1 mb-6 text-sm" style={{ color: 'var(--muted-foreground)' }}>Sign in to clock in.</p>
       {noOrg ? (

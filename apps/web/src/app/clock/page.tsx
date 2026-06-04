@@ -49,7 +49,7 @@ export default function ClockPage() {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-          Clock<span style={{ color: 'var(--accent)' }}>.</span>
+          Clock<span style={{ color: 'var(--primary)' }}>.</span>
         </h1>
         {status && (
           <p className="mt-2 text-sm" style={{ color: 'var(--muted-foreground)' }}>
