@@ -1,0 +1,22 @@
+name: takt-dev
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: takt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev
+    # WSL2 drops host 5432, so publish on 15432 -> 5432 (locked repo-wide, see CLAUDE.md).
+    ports:
+      - '15432:5432'
+    volumes:
+      - takt_dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d takt']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  takt_dev_pgdata:

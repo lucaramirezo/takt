@@ -1,0 +1,27 @@
+{
+  "name": "@takt/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@takt/api": "workspace:*",
+    "@takt/auth": "workspace:*",
+    "@takt/db": "workspace:*",
+    "@orpc/server": "^1.14.2",
+    "better-auth": "^1.6.0",
+    "fastify": "^5.2.0"
+  },
+  "peerDependencies": { "zod": "^4.4.0" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "zod": "^4.4.0"
+  }
+}

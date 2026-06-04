@@ -1,0 +1,43 @@
+{
+  "name": "takt",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "takt: a Deskless Operations OS (time tracking + ops forms, fused).",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "db:push": "turbo run db:push",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "up": "docker compose -f ops/docker-compose.dev.yml up -d",
+    "down": "docker compose -f ops/docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.0",
+    "tsx": "^4.19.0",
+    "turbo": "^2.9.0",
+    "typescript": "^5.6.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "zod": "^4.4.0",
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    },
+    "onlyBuiltDependencies": []
+  }
+}

@@ -1,0 +1,4 @@
+# takt reverse proxy on vpsus. Replace the hostname before going live.
+api.takt.app {
+	reverse_proxy api:3000
+}
