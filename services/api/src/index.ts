@@ -19,8 +19,8 @@ app.all('/api/auth/*', async (request, reply) => {
   reply.hijack()
 })
 
-// oRPC handler. Context is built from the Better Auth session in Phase 1 (orgId + memberRole
-// then drive permission checks + the RLS bridge). For now it carries db + headers only.
+// oRPC handler. Identity (userId, orgId, memberRole) is resolved by the `authed` oRPC
+// middleware inside @takt/api — this route only supplies { db, reqHeaders }.
 app.all('/api/v1/rpc/*', async (request, reply) => {
   const context: TaktContext = {
     db,

@@ -1,17 +1,23 @@
-import { ORPCError } from '@orpc/server'
 import { PunchSubmitInput, PunchSubmitOutput } from '@takt/domain'
-import { pub } from './orpc'
+import { authed, pub } from './orpc'
+import { submitPunch } from './services/punch'
 
 const health = pub.handler(() => ({ ok: true as const, service: 'takt-api' as const }))
 
-// Contract is defined now; the handler lands in Phase 1 (Archon: remote clock-in + geofence).
-// Keep every returned field declared in PunchSubmitOutput: oRPC strips undeclared fields.
-const punchSubmit = pub
+const punchSubmit = authed
   .input(PunchSubmitInput)
   .output(PunchSubmitOutput)
-  .handler(() => {
-    throw new ORPCError('NOT_IMPLEMENTED', { message: 'time.punch.submit lands in Phase 1' })
-  })
+  .handler(({ input, context }) =>
+    submitPunch(
+      context.db,
+      {
+        orgId: context.orgId,
+        userId: context.userId,
+        memberRole: context.memberRole,
+      },
+      input,
+    ),
+  )
 
 export const router = {
   health,
