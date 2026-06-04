@@ -9,7 +9,8 @@ export const statement = {
   punch: ['create', 'edit'],
   geofence: ['read', 'write'],
   assignment: ['read', 'write'],
-  employee: ['read', 'manage'],
+  device: ['register'],
+  employee: ['read', 'manage', 'set_pin'],
   irregularity: ['read', 'resolve'],
   form: ['read', 'build', 'submit'],
   export: ['run'],
@@ -29,7 +30,8 @@ export const manager = ac.newRole({
   punch: ['create', 'edit'],
   geofence: ['read', 'write'],
   assignment: ['read', 'write'],
-  employee: ['read'],
+  device: ['register'],
+  employee: ['read', 'set_pin'],
   irregularity: ['read', 'resolve'],
   form: ['read', 'build', 'submit'],
   export: ['run'],
@@ -40,7 +42,8 @@ export const peopleManager = ac.newRole({
   punch: ['create', 'edit'],
   geofence: ['read', 'write'],
   assignment: ['read', 'write'],
-  employee: ['read', 'manage'],
+  device: ['register'],
+  employee: ['read', 'manage', 'set_pin'],
   irregularity: ['read', 'resolve'],
   form: ['read', 'build', 'submit'],
   export: ['run'],
@@ -51,7 +54,8 @@ export const owner = ac.newRole({
   punch: ['create', 'edit'],
   geofence: ['read', 'write'],
   assignment: ['read', 'write'],
-  employee: ['read', 'manage'],
+  device: ['register'],
+  employee: ['read', 'manage', 'set_pin'],
   irregularity: ['read', 'resolve'],
   form: ['read', 'build', 'submit'],
   export: ['run'],
@@ -59,3 +63,17 @@ export const owner = ac.newRole({
 })
 
 export const roles = { owner, manager, people_manager: peopleManager, employee }
+
+// Granted-permissions map per role, read by the oRPC requirePermission middleware.
+// `.statements` is the object passed to ac.newRole — the role's granted verbs.
+const grantsByRole: Record<string, Record<string, readonly string[] | undefined>> = {
+  owner: owner.statements,
+  manager: manager.statements,
+  people_manager: peopleManager.statements,
+  employee: employee.statements,
+}
+
+/** True if `role` is granted `action` on `resource` per the statements above. */
+export function roleCan(role: string, resource: string, action: string): boolean {
+  return grantsByRole[role]?.[resource]?.includes(action) ?? false
+}

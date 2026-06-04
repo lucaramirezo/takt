@@ -26,6 +26,7 @@ export const employeeProfile = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     employmentType: employmentType().notNull().default('hourly'),
     payRateCents: integer(),
+    pinHash: text(),
     defaultSiteId: uuid(),
     active: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -48,6 +49,23 @@ export const site = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('site_org_idx').on(t.orgId)],
+)
+
+export const kioskDevice = pgTable(
+  'kiosk_device',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    orgId: text()
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    siteId: uuid()
+      .references(() => site.id, { onDelete: 'set null' }),
+    name: text().notNull(),
+    tokenHash: text().notNull().unique(),
+    active: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('kiosk_device_org_idx').on(t.orgId)],
 )
 
 export const geofence = pgTable(

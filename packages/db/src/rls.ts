@@ -12,7 +12,7 @@ export interface OrgCtx {
   memberRole: string
 }
 
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0]
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0]
 
 export async function withOrgCtx<T>(
   db: Database,

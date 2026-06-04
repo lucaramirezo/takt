@@ -50,4 +50,4 @@ export const auth = betterAuth({
 })
 
 export type Auth = typeof auth
-export { ac, roles } from './permissions'
+export { ac, roles, roleCan } from './permissions'
