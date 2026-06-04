@@ -1,7 +1,6 @@
 packages:
-  - "apps/admin"
+  - "apps/web"
+  - "apps/api"
   - "packages/*"
-  - "services/*"
-  # apps/mobile is initialized later via create-expo-app (for correct Expo SDK 54 native pins);
+  # apps/mobile is initialized later via create-expo-app (Expo SDK 54 native pins);
   # excluded from the build graph until the worker/kiosk clock-mode slices are built.
-

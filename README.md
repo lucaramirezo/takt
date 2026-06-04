@@ -34,8 +34,8 @@ pnpm dev               # admin :3001, api :3000, expo :8081
 The backend packages are fully scaffolded. The two app shells are minimal and are finalized with their own CLIs:
 
 ```bash
-# Admin: pull shadcn luma components into apps/admin
-cd apps/admin && npx shadcn@latest init --preset luma && npx shadcn@latest add button card table badge
+# Web: pull shadcn luma components into apps/web
+cd apps/web && npx shadcn@latest init --preset luma && npx shadcn@latest add button card table badge
 
 # Mobile: finalize the Expo dev-build (geofencing/NFC/kiosk need a dev-build, not Expo Go)
 cd apps/mobile && npx expo install && npx expo prebuild

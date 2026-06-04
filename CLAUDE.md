@@ -37,9 +37,9 @@ takt is a Deskless Operations OS: time tracking and operations forms, fused, for
 Expo native universal app (worker + kiosk) + Next.js admin, sharing one oRPC API + Better Auth (org plugin) + a single Postgres with Row-Level Security. Native is required: background geofencing, NFC, and kiosk lockdown are impossible/unreliable in a browser.
 
 ```
-apps/admin     Next.js 15 (App Router) owner/manager cockpit (:3001)
+apps/web        Next.js 15 (App Router) owner/manager cockpit (:3001)
 apps/mobile    Expo (React Native) worker + kiosk app (one binary; kiosk = device-bound mode)
-services/api    Fastify entry: mounts Better Auth + the oRPC handler (:3000)
+apps/api        Fastify entry: mounts Better Auth + the oRPC handler (:3000)
 packages/api    oRPC contracts + middleware + context
 packages/auth   Better Auth config (org plugin, permission statements)
 packages/db     Drizzle schema + migrations + RLS policies + client

@@ -8,7 +8,6 @@ WORKDIR /app
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps ./apps
 COPY packages ./packages
-COPY services ./services
 RUN pnpm install --frozen-lockfile || pnpm install
 
 EXPOSE 3000
