@@ -74,7 +74,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.delete(timeEntry).where(eq(timeEntry.orgId, orgA))
   await db.delete(employeeProfile).where(eq(employeeProfile.orgId, orgA))
-  await db.delete(organizations).where(eq(organizations.id, orgB)) // cascades orgMembers/profile
+  await db.delete(organizations).where(eq(organizations.id, orgB)) // no org members or profile — standalone tenant row
   await db.delete(organizations).where(eq(organizations.id, orgA)) // cascades the owner member row
   if (userA) await db.delete(user).where(eq(user.id, userA))       // cascades session/account
   await db.delete(user).where(eq(user.id, userB))
@@ -98,7 +98,7 @@ describe('apps/api HTTP boundary', () => {
       capturedAtClient: new Date().toISOString(),
     })
     expect(out.status).toBe('valid')
-    expect(out.entryId).toMatch(/[0-9a-f-]{36}/)
+    expect(out.entryId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
   })
 
   it('cross-tenant RLS denial: org B context cannot write org A data', async () => {

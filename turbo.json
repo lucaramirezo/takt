@@ -18,7 +18,7 @@
       "dependsOn": ["^build"]
     },
     "@takt/api-server#test": {
-      "dependsOn": ["@takt/api#test"]
+      "dependsOn": ["^build", "@takt/api#test"]
     },
     "db:generate": { "cache": false },
     "db:migrate": { "cache": false },
