@@ -9,7 +9,7 @@ const orgB = `org_${randomUUID()}`
 const userA = `user_${randomUUID()}`
 const userB = `user_${randomUUID()}`
 let profileA = ''
-let profileB = ''
+let _profileB = ''
 
 const ctxA = () => ({ orgId: orgA, userId: userA, memberRole: 'employee' })
 const ctxB = () => ({ orgId: orgB, userId: userB, memberRole: 'employee' })
@@ -42,7 +42,7 @@ beforeAll(async () => {
     .values({ orgId: orgB, userId: userB })
     .returning({ id: employeeProfile.id })
   profileA = pa!.id
-  profileB = pb!.id
+  _profileB = pb!.id
 })
 
 afterAll(async () => {
@@ -90,9 +90,7 @@ describe('submitPunch', () => {
           capturedAtClient: new Date(),
         })
       }),
-    ).rejects.toThrow()
+    // DrizzleQueryError wraps the PostgresError; code '42501' = INSUFFICIENT_PRIVILEGE from the RLS WITH CHECK policy
+    ).rejects.toMatchObject({ cause: { code: '42501' } })
   })
 })
-
-// Keep profileB referenced to satisfy the linter
-void profileB

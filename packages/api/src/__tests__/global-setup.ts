@@ -19,7 +19,7 @@ export default async function setup() {
   // Step 2: apply manual RLS/roles SQL idempotently (requires tables to exist, hence after migrate)
   const sqlFile = resolve(process.cwd(), '../db/migrations/manual/0001_roles_and_rls.sql')
   const ddl = readFileSync(sqlFile, 'utf8')
-  const sql = postgres(url)
+  const sql = postgres(url, { max: 1 })
   try {
     await sql.unsafe(ddl)
   } finally {
