@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto'
 import { ORPCError, os } from '@orpc/server'
 import { auth, roleCan } from '@takt/auth'
 import { kioskDevice, orgMembers } from '@takt/db'
 import { and, eq } from 'drizzle-orm'
 import type { TaktContext } from './context'
+import { hashDeviceToken } from './lib/crypto'
 
 /** Base oRPC builder bound to the takt context. Procedures + middleware build off this. */
 export const pub = os.$context<TaktContext>()
@@ -27,7 +27,7 @@ export const authed = pub.use(async ({ context, next }) => {
 export const kioskAuthed = pub.use(async ({ context, next }) => {
   const token = context.reqHeaders.get('x-takt-device-token')
   if (!token) throw new ORPCError('UNAUTHORIZED')
-  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const tokenHash = hashDeviceToken(token)
   const [device] = await context.db
     .select({ id: kioskDevice.id, orgId: kioskDevice.orgId, siteId: kioskDevice.siteId })
     .from(kioskDevice)

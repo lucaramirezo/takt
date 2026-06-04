@@ -22,7 +22,8 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   if (!saltHex || !hashHex) return false
   const expected = Buffer.from(hashHex, 'hex')
   const derived = await scryptAsync(pin, Buffer.from(saltHex, 'hex'), expected.length)
-  return derived.length === expected.length && timingSafeEqual(derived, expected)
+  // lengths equal by construction (scryptAsync keyed to expected.length)
+  return timingSafeEqual(derived, expected)
 }
 
 /** High-entropy (256-bit) device token; returned to the manager exactly once. */
