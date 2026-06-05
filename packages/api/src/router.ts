@@ -1,4 +1,6 @@
 import {
+  EmployeeCreateInput,
+  EmployeeCreateOutput,
   KioskPunchInput,
   MeOutput,
   PunchStatusOutput,
@@ -7,6 +9,8 @@ import {
   RegisterDeviceInput,
   RegisterDeviceOutput,
   RosterOutput,
+  SetMemberRoleInput,
+  SetMemberRoleOutput,
   SetPinInput,
   SetPinOutput,
 } from '@takt/domain'
@@ -14,6 +18,8 @@ import type { MemberRole } from '@takt/domain'
 import { authed, kioskAuthed, pub, requirePermission } from './orpc'
 import { registerDevice } from './services/device'
 import { setEmployeePin } from './services/employee'
+import { createEmployee } from './services/employee-create'
+import { setMemberRole } from './services/member'
 import { getRoster } from './services/org'
 import { getPunchStatus, submitKioskPunch, submitPunch } from './services/punch'
 
@@ -75,13 +81,27 @@ const employeePinSet = requirePermission('employee', 'set_pin')
     setEmployeePin(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
   )
 
+const employeeCreate = requirePermission('employee', 'manage')
+  .input(EmployeeCreateInput)
+  .output(EmployeeCreateOutput)
+  .handler(({ input, context }) =>
+    createEmployee(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
+  )
+
+const memberSetRole = requirePermission('employee', 'manage')
+  .input(SetMemberRoleInput)
+  .output(SetMemberRoleOutput)
+  .handler(({ input, context }) =>
+    setMemberRole(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
+  )
+
 export const router = {
   health,
   me,
-  org: { roster: orgRoster },
+  org: { roster: orgRoster, member: { setRole: memberSetRole } },
   time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus } },
   device: { register: deviceRegister },
-  employee: { pin: { set: employeePinSet } },
+  employee: { pin: { set: employeePinSet }, create: employeeCreate },
 }
 
 export type Router = typeof router

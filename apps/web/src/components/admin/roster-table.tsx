@@ -1,7 +1,9 @@
-import type { RosterOutput } from '@takt/domain'
+import type { MemberRole, RosterOutput } from '@takt/domain'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { RoleEditCell } from './role-edit-cell'
 
-export function RosterTable({ rows }: { rows: RosterOutput }) {
+export function RosterTable({ rows, meRole }: { rows: RosterOutput; meRole: MemberRole }) {
+  const canManage = meRole === 'owner' || meRole === 'people_manager'
   return (
     <Table>
       <TableHeader>
@@ -9,6 +11,7 @@ export function RosterTable({ rows }: { rows: RosterOutput }) {
           <TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead>
           <TableHead>Employment</TableHead><TableHead>Status</TableHead>
           <TableHead className="text-right">Joined</TableHead>
+          {canManage && <TableHead className="text-right">Actions</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -26,6 +29,11 @@ export function RosterTable({ rows }: { rows: RosterOutput }) {
             <TableCell className="text-right font-mono tabular-nums">
               {new Date(r.joinedAt).toLocaleDateString()}
             </TableCell>
+            {canManage && (
+              <TableCell className="text-right">
+                <RoleEditCell row={r} meRole={meRole} />
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

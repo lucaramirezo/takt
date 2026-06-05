@@ -73,6 +73,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
   expect(rows.every((r) => r.userId !== userB)).toBe(true)  // negative: other-org row absent
   ```
 - RLS VITEST ASSERTIONS: assert RLS `WITH CHECK` violations as `.rejects.toMatchObject({ cause: { code: '42501' } })` — Drizzle wraps postgres.js errors as `DrizzleQueryError { cause: PostgresError { code } }`. A regex on the message string is fragile by comparison; `'42501'` is the stable SQLSTATE for `INSUFFICIENT_PRIVILEGE`.
+- INTEGRATION-TEST DYNAMIC ID CLEANUP. When a test calls a mutation that creates a `user` row (e.g., `employee.create` -> `out.userId`), the returned id is dynamic and NOT in the fixture seed. `organizations` cascade cleans `org_members` and FK-dependent tables, but the standalone `user` row is left orphaned. Required pattern: declare a module-level `const createdUserIds: string[] = []` array; push every `out.userId` from happy-path assertions; add `await db.delete(user).where(inArray(user.id, createdUserIds))` in `afterAll` (before the org delete). Apply this to any test that calls a mutation returning a top-level `user.id`.
 
 ## Design system (locked)
 "Precision / Takt Grid" personality on the shadcn `luma` preset. Init the admin with `npx shadcn@latest init --preset luma`. Warm-paper light theme (bg `#FBFAF8`, ink `#1A1916`) + andon-orange accent `#E8590C` (live/CTA ONLY, never warning); success `#2F7D54`, warning `#B86E00`, danger `#C0392B`; dark "cockpit" peer theme `#16150F`. Fonts: Space Grotesk (heading) + Inter (body) + JetBrains Mono (all numerics, tabular). Icons: Phosphor (Regular, stroke 1.5), one library only. Tokens are the single source in `@takt/ui-tokens` feeding shadcn-web and NativeWind-native. Full spec: see the lwiki artifact `drafts/artifacts/2026-06-04/takt/design/design-system.md`.
@@ -86,11 +87,38 @@ ops/            docker-compose (dev + vpsus) + Caddy
   - **Icon library:** `grep -E '"lucide|react-icons|heroicons"' apps/web/package.json` -- remove any hit (Phosphor is the only icon library). Also verify `shadcn` is in `devDependencies`, not `dependencies`.
   - **Transitive components:** `shadcn add <X>` resolves transitive deps silently (e.g. `sidebar` pulls tooltip, sheet, skeleton, use-mobile). Re-run the Phosphor icon audit on ALL generated files, not just the ones you explicitly named.
   - **Phosphor audit per generated file:** `grep -rEn "lucide-react" apps/web/src/components/ui` -- replace any lucide import with the Phosphor equivalent. Client `'use client'` ui files use the default Phosphor entry; server components must use `@phosphor-icons/react/dist/ssr`.
-  - **React import:** Check generated files for `React.ComponentProps` (or any `React.*`) without an explicit `import * as React from 'react'` -- add the import if missing.
+  - **React import:** Check generated files AND hand-written `'use client'` files for any `React.*` namespace reference (e.g. `React.ComponentProps`, `React.FormEvent`, `React.ReactNode` without a direct `ReactNode` import) -- add `import * as React from 'react'` if missing. The most common trigger in hand-written components is `React.FormEvent<HTMLFormElement>` in form submit handlers.
   - **Browser globals:** If generated `'use client'` files reference `window`, `document`, `KeyboardEvent`, or other browser globals, add them to the browser globals block in `eslint.config.js` (`globals: { ..., window: 'readonly', document: 'readonly', KeyboardEvent: 'readonly', ... }`).
   - **SidebarInset is `<main>`:** shadcn's `SidebarInset` component renders as a `<main>` element. Page content wrappers inside `SidebarInset` must use `<div>` (or `<section>`), never another `<main>` -- nested landmarks are invalid HTML5 and a WCAG 2.1 violation.
 
+### Permission-gated table columns
+
+When adding a table column that requires a permission (e.g., `employee:manage`):
+- Gate BOTH `<TableHead>` and `<TableCell>` on the same predicate as the inner component.
+- Example: `{canManage && <TableHead>Actions</TableHead>}` and `{canManage && <TableCell>...</TableCell>}`.
+- Inner component guards (e.g., early `return null` inside `RoleEditCell`) are defence-in-depth only; they do not replace column visibility. A column present but always empty is a UX bug.
+- Define `canManage` once at the parent and pass it down rather than repeating the permission test in each render expression.
+
+### Dialog field-state reset
+
+Every dialog with editable fields MUST reset all field state on dismiss, not only on successful submit. Wrap `onOpenChange` with a handler:
+
+```tsx
+function handleOpen(next: boolean) {
+  setOpen(next)
+  if (!next) {
+    // reset every field to its initial value + clear error
+    setFieldA(initialA); setFieldB(initialB); setError(null)
+  }
+}
+// ...
+<Dialog open={open} onOpenChange={handleOpen}>
+```
+
+Omitting this causes stale form values when the user cancels and re-opens the dialog.
+
 ## Dev
+- FRESH WORKTREE SETUP. When entering a fresh worktree (e.g., one created by Archon), `node_modules` are NOT shared with the main tree. Always run `pnpm install` before any `check-types`, `lint`, or test command. Canonical Task 0 sequence: `pnpm install && pnpm up`, then verify the DB is reachable on 15433 (`pg_isready -h localhost -p 15433`, or if `pg_isready` is absent, a node one-liner: `node --input-type=module -e "import postgres from 'postgres'; const s=postgres(process.env.DATABASE_URL ?? 'postgresql://postgres:dev@localhost:15433/takt',{max:1}); await s.unsafe('select 1'); await s.end()"`), then `pnpm -r check-types && pnpm -r lint`.
 - `pnpm install` then `pnpm up` (starts Postgres + Redis via `ops/docker-compose.dev.yml`).
 - `pnpm --filter @takt/db db:generate` then `db:migrate`, then apply `packages/db/migrations/manual/*.sql` for RLS + roles.
 - `pnpm dev` runs all apps via turbo. Admin on :3001, api on :3000, Expo on :8081.

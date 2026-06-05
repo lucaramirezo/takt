@@ -29,3 +29,28 @@ export type RosterRow = z.infer<typeof RosterRow>
 
 export const RosterOutput = z.array(RosterRow)
 export type RosterOutput = z.infer<typeof RosterOutput>
+
+const pinSchema = z.string().regex(/^\d{4,6}$/, 'PIN must be 4-6 digits')
+
+// employee.create
+export const EmployeeCreateInput = z.object({
+  name: z.string().min(1),
+  email: z.string().email().optional(),
+  role: memberRoleSchema,
+  employmentType: employmentTypeSchema,
+  pin: pinSchema.optional(),
+})
+export type EmployeeCreateInput = z.infer<typeof EmployeeCreateInput>
+export const EmployeeCreateOutput = z.object({
+  userId: z.string(),
+  memberId: z.string(),
+  employeeProfileId: z.string().uuid(),
+  role: memberRoleSchema,
+})
+export type EmployeeCreateOutput = z.infer<typeof EmployeeCreateOutput>
+
+// org.member.setRole
+export const SetMemberRoleInput = z.object({ memberId: z.string(), role: memberRoleSchema })
+export type SetMemberRoleInput = z.infer<typeof SetMemberRoleInput>
+export const SetMemberRoleOutput = z.object({ memberId: z.string(), role: memberRoleSchema })
+export type SetMemberRoleOutput = z.infer<typeof SetMemberRoleOutput>
