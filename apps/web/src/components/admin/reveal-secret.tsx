@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Eye, EyeSlash, Copy, Check } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -9,6 +9,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 export function RevealSecret({ value }: { value: string }) {
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [copied])
 
   async function handleCopy() {
     try {
