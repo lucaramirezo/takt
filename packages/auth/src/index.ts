@@ -33,9 +33,12 @@ export const auth = betterAuth({
       session,
       account,
       verification,
-      organization: organizations,
-      member: orgMembers,
-      invitation: orgInvitations,
+      // Keys MUST match the org-plugin modelName values below (organizations/orgMembers/orgInvitations),
+      // because the Drizzle adapter resolves models by schema-object key. Keying these as
+      // organization/member/invitation makes org-plugin queries throw "model orgMembers not found".
+      organizations,
+      orgMembers,
+      orgInvitations,
     },
   }),
   emailAndPassword: { enabled: true },

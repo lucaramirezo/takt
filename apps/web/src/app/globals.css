@@ -141,6 +141,13 @@
 }
 
 body {
+  /* Expose the font tokens as REAL runtime custom properties. The @theme inline block above does not
+     emit --font-sans/--font-heading/--font-mono to :root, so the pages' inline
+     style={{ fontFamily: 'var(--font-heading)' }} would otherwise fall back to serif (Times).
+     next/font sets --font-inter/--font-space-grotesk/--font-jetbrains-mono on <body>, so define here. */
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
