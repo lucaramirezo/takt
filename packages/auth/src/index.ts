@@ -11,6 +11,7 @@ import {
   user,
   verification,
 } from '@takt/db'
+import { eq } from 'drizzle-orm'
 import { ac, roles } from './permissions'
 
 /**
@@ -26,6 +27,22 @@ export const auth = betterAuth({
   // Better Auth always also trusts its own baseURL origin (:3000), so the existing HTTP test is unaffected.
   trustedOrigins: (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? process.env.CORS_ALLOWLIST ?? 'http://localhost:3001')
     .split(',').map((s) => s.trim()).filter(Boolean),
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const [membership] = await db
+            .select({ orgId: orgMembers.orgId })
+            .from(orgMembers)
+            .where(eq(orgMembers.userId, session.userId))
+            .limit(1)
+          return membership
+            ? { data: { ...session, activeOrganizationId: membership.orgId } }
+            : { data: session }
+        },
+      },
+    },
+  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {

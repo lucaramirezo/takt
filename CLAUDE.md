@@ -66,6 +66,12 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - `timingSafeEqual` THROWS ON UNEQUAL-LENGTH BUFFERS. Always pass equal-length buffers. When the caller controls `keylen` (e.g. `scryptAsync(input, salt, expected.length)`), lengths are equal by construction — the guard `derived.length === expected.length` is redundant. When the caller does NOT control length (e.g. comparing two user-supplied hex strings), the length guard IS required before calling `timingSafeEqual`.
 - R2 IS DEFERRED: object storage (site-check-in photos) is wired only when the remote-clock photo feature lands (Phase 1). Do not add the aws-sdk dependency until then.
 - UNUSED VARIABLES IN TESTS: prefix with `_` (e.g. `_profileB`) — the ESLint `varsIgnorePattern: '^_'` rule suppresses them. Never use `void expr` as a lint workaround.
+- PNPM WORKSPACE EXPLICIT DEPS. pnpm uses its default isolated (non-hoisted) node_modules, so transitive availability does NOT satisfy a direct import. When any package introduces a new direct `import` from another package (including packages already used transitively by its own deps), add that package explicitly to the importer's `package.json`. Common missed cases: adding a `drizzle-orm` import to a package (e.g. `@takt/auth`) that uses it indirectly; importing `@takt/domain` in a Next.js app whose deps don't list it directly. TypeScript catches this at `check-types` time, but it is faster to add the dep when writing the import.
+- CROSS-TENANT ISOLATION TESTS NEED BOTH SIDES. Tenant isolation assertions must always have a positive side (expected rows ARE present) AND a negative side (other-org rows are absent). A negative-only assertion passes on an empty roster: `expect(rows.every((r) => r.userId !== userB)).toBe(true)` passes when `rows` is `[]`. Required pattern:
+  ```ts
+  expect(rows.some((r) => r.userId === userA)).toBe(true)   // positive: own-org row present
+  expect(rows.every((r) => r.userId !== userB)).toBe(true)  // negative: other-org row absent
+  ```
 - RLS VITEST ASSERTIONS: assert RLS `WITH CHECK` violations as `.rejects.toMatchObject({ cause: { code: '42501' } })` — Drizzle wraps postgres.js errors as `DrizzleQueryError { cause: PostgresError { code } }`. A regex on the message string is fragile by comparison; `'42501'` is the stable SQLSTATE for `INSUFFICIENT_PRIVILEGE`.
 
 ## Design system (locked)
@@ -76,13 +82,20 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - **CSS ordering**: takt palette overrides MUST appear AFTER the luma variable block, not before it. CSS last-declaration wins; inserting before the luma block means luma silently wins. After init, append takt values at the bottom of each CSS block (`:root`, `.dark`).
 - **Font var**: luma overwrites `--font-heading` with `var(--font-sans)`. After init, restore it to `var(--font-space-grotesk)`. Audit with: `grep -n 'font-heading' apps/web/src/app/globals.css`.
 - **`--accent` vs `--primary`**: luma repurposes `--accent` for neutral hover fills (near-white in light, dark gray in dark mode) — NOT the orange brand color. Andon-orange (`#E8590C`) maps to `--primary` (luma's `Button variant="default"` CTA token). NEVER assign orange to `--accent`; it would render near-invisible in light mode and flood hover states.
-- **Post-CLI dep audit** (after any `shadcn init` or `shadcn add`): run `grep -E '"lucide|react-icons|heroicons"' apps/web/package.json` and remove any hit (Phosphor is the only icon library). Also verify `shadcn` is in `devDependencies`, not `dependencies` — it is a scaffolding CLI with no runtime role.
+- **Post-CLI dep audit** (after any `shadcn init` or `shadcn add`):
+  - **Icon library:** `grep -E '"lucide|react-icons|heroicons"' apps/web/package.json` -- remove any hit (Phosphor is the only icon library). Also verify `shadcn` is in `devDependencies`, not `dependencies`.
+  - **Transitive components:** `shadcn add <X>` resolves transitive deps silently (e.g. `sidebar` pulls tooltip, sheet, skeleton, use-mobile). Re-run the Phosphor icon audit on ALL generated files, not just the ones you explicitly named.
+  - **Phosphor audit per generated file:** `grep -rEn "lucide-react" apps/web/src/components/ui` -- replace any lucide import with the Phosphor equivalent. Client `'use client'` ui files use the default Phosphor entry; server components must use `@phosphor-icons/react/dist/ssr`.
+  - **React import:** Check generated files for `React.ComponentProps` (or any `React.*`) without an explicit `import * as React from 'react'` -- add the import if missing.
+  - **Browser globals:** If generated `'use client'` files reference `window`, `document`, `KeyboardEvent`, or other browser globals, add them to the browser globals block in `eslint.config.js` (`globals: { ..., window: 'readonly', document: 'readonly', KeyboardEvent: 'readonly', ... }`).
+  - **SidebarInset is `<main>`:** shadcn's `SidebarInset` component renders as a `<main>` element. Page content wrappers inside `SidebarInset` must use `<div>` (or `<section>`), never another `<main>` -- nested landmarks are invalid HTML5 and a WCAG 2.1 violation.
 
 ## Dev
 - `pnpm install` then `pnpm up` (starts Postgres + Redis via `ops/docker-compose.dev.yml`).
 - `pnpm --filter @takt/db db:generate` then `db:migrate`, then apply `packages/db/migrations/manual/*.sql` for RLS + roles.
 - `pnpm dev` runs all apps via turbo. Admin on :3001, api on :3000, Expo on :8081.
 - `pnpm check-types` and `pnpm lint` must pass before any commit. When changes touch `apps/web`, also run `pnpm --filter @takt/web build` — Next.js build failures are not caught by `check-types` or `pnpm test`.
+- Before any commit, verify no em-dashes (U+2014) were introduced in any changed file: `git diff --name-only origin/main..HEAD | while read f; do [ -f "$f" ] && grep -Hn -P "\x{2014}" "$f"; done`. Expect zero hits. A directory-scoped grep misses em-dashes in test files, schema comments, and other paths outside the named dirs.
 - Before implementing any feature, run `pnpm check-types && pnpm lint` and note any pre-existing failures. Fix pre-existing failures in a separate commit before the feature work begins; do NOT widen their fix beyond the minimum required to make the baseline green.
 
 ## Build process

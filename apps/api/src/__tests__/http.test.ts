@@ -35,7 +35,7 @@ async function authPost(path: string, body: unknown) {
   return res
 }
 
-// All IDs known at declaration time — afterAll cleanup is unconditional.
+// All IDs known at declaration time; afterAll cleanup is unconditional.
 const orgA = `org_${randomUUID()}`
 const orgB = `org_${randomUUID()}`
 const userB = `user_${randomUUID()}`
@@ -43,11 +43,18 @@ const memberA = `mem_${randomUUID()}`
 let userA = ''
 let profileA = ''
 
+// Employee fixtures (separate cookies map to avoid clobbering userA's session)
+let userEmployee = ''
+const memberEmployee = `mem_${randomUUID()}`
+const employeeEmail = `emp_${randomUUID()}@takt.test`
+const employeeCookies = new Map<string, string>()
+const employeeCookieHeader = () => [...employeeCookies.entries()].map(([k, v]) => `${k}=${v}`).join('; ')
+
 beforeAll(async () => {
   app = buildApp()
   baseUrl = await app.listen({ port: 0, host: '127.0.0.1' }) // Fastify resolves to the full URL string
 
-  // 1. Sign up over Better Auth HTTP — sole purpose: obtain a real session cookie for userA.
+  // 1. Sign up over Better Auth HTTP. Sole purpose: obtain a real session cookie for userA.
   const email = `it_${randomUUID()}@takt.test`
   const signUp = await authPost('/api/auth/sign-up/email', { email, password: 'Sup3rSecret!pw', name: 'IT User' })
   expect(signUp.status).toBe(200)
@@ -58,7 +65,7 @@ beforeAll(async () => {
   await db.insert(organizations).values({ id: orgA, name: 'IT Org', slug: `it-${orgA.slice(-8)}` })
   await db.insert(orgMembers).values({ id: memberA, userId: userA, orgId: orgA, role: 'owner' })
 
-  // 3. Set session's activeOrganizationId directly in the DB — same effect as setActiveOrganization,
+  // 3. Set session's activeOrganizationId directly in the DB: same effect as setActiveOrganization,
   //    avoids the adapter modelName lookup that doesn't resolve in test context.
   await db.update(session).set({ activeOrganizationId: orgA }).where(eq(session.userId, userA))
 
@@ -69,14 +76,31 @@ beforeAll(async () => {
   // RLS-leg fixtures: second tenant (direct inserts, mirrors punch.test.ts).
   await db.insert(organizations).values({ id: orgB, name: 'Org B', slug: `org-b-${orgB.slice(-8)}` })
   await db.insert(user).values({ id: userB, name: 'B', email: `${userB}@t.test` })
+
+  // 5. Sign up employee user using raw fetch (separate cookie map; never call storeCookies).
+  const signUpEmp = await fetch(`${baseUrl}/api/auth/sign-up/email`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: AUTH_ORIGIN },
+    body: JSON.stringify({ email: employeeEmail, password: 'Sup3rSecret!pw', name: 'Employee User' }),
+  })
+  expect(signUpEmp.status).toBe(200)
+  userEmployee = (await signUpEmp.json() as { user: { id: string } }).user.id
+  for (const c of signUpEmp.headers.getSetCookie()) {
+    const pair = c.split(';', 1)[0]!
+    const i = pair.indexOf('=')
+    employeeCookies.set(pair.slice(0, i), pair.slice(i + 1))
+  }
+  await db.insert(orgMembers).values({ id: memberEmployee, userId: userEmployee, orgId: orgA, role: 'employee' })
+  await db.update(session).set({ activeOrganizationId: orgA }).where(eq(session.userId, userEmployee))
 })
 
 afterAll(async () => {
   await db.delete(timeEntry).where(eq(timeEntry.orgId, orgA))
   await db.delete(employeeProfile).where(eq(employeeProfile.orgId, orgA))
-  await db.delete(organizations).where(eq(organizations.id, orgB)) // no org members or profile — standalone tenant row
-  await db.delete(organizations).where(eq(organizations.id, orgA)) // cascades the owner member row
+  await db.delete(organizations).where(eq(organizations.id, orgB)) // no org members or profile; standalone tenant row
+  await db.delete(organizations).where(eq(organizations.id, orgA)) // cascades the owner member row + employee member
   if (userA) await db.delete(user).where(eq(user.id, userA))       // cascades session/account
+  if (userEmployee) await db.delete(user).where(eq(user.id, userEmployee))
   await db.delete(user).where(eq(user.id, userB))
   await app.close()
 })
@@ -135,5 +159,37 @@ describe('apps/api HTTP boundary', () => {
       .where(eq(session.userId, userA))
       .limit(1)
     expect(s?.active).toBe(orgA)
+  })
+
+  describe('me + org.roster procedures over HTTP', () => {
+    it('me() with no session cookie -> UNAUTHORIZED', async () => {
+      const noAuthLink = new RPCLink({ url: `${baseUrl}/api/v1/rpc`, headers: () => ({}) })
+      const noAuthClient: RouterClient<Router> = createORPCClient(noAuthLink)
+      await expect(noAuthClient.me()).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
+    })
+
+    it('me() authenticated as owner -> returns { userId, orgId, role }', async () => {
+      const link = new RPCLink({ url: `${baseUrl}/api/v1/rpc`, headers: () => ({ cookie: cookieHeader() }) })
+      const client: RouterClient<Router> = createORPCClient(link)
+      const result = await client.me()
+      expect(result).toEqual({ userId: userA, orgId: orgA, role: 'owner' })
+    })
+
+    it('org.roster() as employee -> FORBIDDEN', async () => {
+      const link = new RPCLink({ url: `${baseUrl}/api/v1/rpc`, headers: () => ({ cookie: employeeCookieHeader() }) })
+      const client: RouterClient<Router> = createORPCClient(link)
+      await expect(client.org.roster()).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    })
+
+    it('org.roster() as owner -> returns only active-org rows', async () => {
+      const link = new RPCLink({ url: `${baseUrl}/api/v1/rpc`, headers: () => ({ cookie: cookieHeader() }) })
+      const client: RouterClient<Router> = createORPCClient(link)
+      const rows = await client.org.roster()
+      expect(rows.length).toBeGreaterThanOrEqual(1)
+      // At least one expected row is present (positive side of tenant isolation)
+      expect(rows.some((r) => r.userId === userA)).toBe(true)
+      // No row belongs to a different org (negative side of tenant isolation)
+      expect(rows.every((r) => r.userId !== userB)).toBe(true)
+    })
   })
 })
