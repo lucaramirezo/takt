@@ -57,7 +57,11 @@ export function RegisterDeviceDialog() {
       <DialogTrigger asChild>
         <Button variant="secondary">Register device</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent
+        showCloseButton={token === null}
+        onEscapeKeyDown={(e) => { if (token !== null) e.preventDefault() }}
+        onInteractOutside={(e) => { if (token !== null) e.preventDefault() }}
+      >
         <DialogHeader>
           <DialogTitle>Register device</DialogTitle>
         </DialogHeader>

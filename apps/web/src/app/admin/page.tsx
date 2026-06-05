@@ -26,7 +26,7 @@ export default async function AdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <RegisterDeviceDialog />
+          {(me.role as string) !== 'employee' && <RegisterDeviceDialog />}
           {(me.role === 'owner' || me.role === 'people_manager') && (
             <AddEmployeeDialog meRole={me.role} />
           )}
