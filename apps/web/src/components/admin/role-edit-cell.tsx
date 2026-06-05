@@ -29,6 +29,7 @@ export function RoleEditCell({ row, meRole }: { row: RosterRow; meRole: MemberRo
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
+  if (meRole !== 'owner' && meRole !== 'people_manager') return null
   if (meRole === 'people_manager' && row.role === 'owner') return null
 
   function handleOpen(next: boolean) {

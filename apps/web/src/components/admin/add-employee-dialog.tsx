@@ -60,8 +60,20 @@ export function AddEmployeeDialog({ meRole }: { meRole: MemberRole }) {
     })
   }
 
+  function handleOpen(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setName('')
+      setEmail('')
+      setPin('')
+      setRole('employee')
+      setEmploymentType('hourly')
+      setError(null)
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
         <Button variant="default">Add employee</Button>
       </DialogTrigger>

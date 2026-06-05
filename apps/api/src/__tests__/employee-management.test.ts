@@ -77,6 +77,9 @@ const memberBId = `member_${randomUUID()}`
 const existingEmail = `existing_${randomUUID()}@takt.test`
 let existingUserId = ''
 
+// Captured from the happy-path create test; cleaned up in afterAll
+let createdEmployeeUserId = ''
+
 beforeAll(async () => {
   app = buildApp()
   baseUrl = await app.listen({ port: 0, host: '127.0.0.1' })
@@ -137,6 +140,7 @@ afterAll(async () => {
   await db.delete(user).where(eq(user.id, targetEmp3UserId))
   await db.delete(user).where(eq(user.id, userBId))
   if (existingUserId) await db.delete(user).where(eq(user.id, existingUserId))
+  if (createdEmployeeUserId) await db.delete(user).where(eq(user.id, createdEmployeeUserId))
   await app.close()
 })
 
@@ -149,6 +153,7 @@ describe('employee management via oRPC router', () => {
         role: 'employee',
         employmentType: 'hourly',
       })
+      createdEmployeeUserId = out.userId
       expect(out.userId).toMatch(/^user_/)
       expect(out.memberId).toMatch(/^member_/)
       expect(out.role).toBe('employee')
