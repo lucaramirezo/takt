@@ -1,2 +1,3 @@
 export * from './schemas/punch'
 export * from './schemas/kiosk'
+export * from './schemas/org'

@@ -21,16 +21,8 @@ export default function LoginPage() {
       const signIn = await authClient.signIn.email({ email, password })
       if (signIn.error) { setError(signIn.error.message ?? 'Sign in failed'); return }
       const session = await authClient.getSession()
-      let activeOrg = session.data?.session.activeOrganizationId ?? null
-      if (!activeOrg) {
-        const list = await authClient.organization.list()
-        const firstOrg = (list.data ?? [])[0]
-        if (!firstOrg) { setNoOrg(true); return }
-        // MVP stopgap: a worker in 2+ orgs gets the first. TODO: real org picker (deferred).
-        activeOrg = firstOrg.id
-        await authClient.organization.setActive({ organizationId: activeOrg })
-      }
-      router.push('/clock')
+      if (!session.data?.session.activeOrganizationId) { setNoOrg(true); return }
+      router.push('/admin')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error')
     } finally {
