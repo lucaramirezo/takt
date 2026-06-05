@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config'
 
-process.env.DATABASE_URL ??= 'postgresql://postgres:dev@localhost:15432/takt'
+process.env.DATABASE_URL ??= 'postgresql://postgres:dev@localhost:15433/takt'
 
 export default defineConfig({
   test: {

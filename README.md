@@ -18,7 +18,7 @@ A Deskless Operations OS: time tracking and operations forms, fused. For busines
 ```bash
 pnpm install
 
-# start local Postgres (+ Redis) on host port 15432
+# start local Postgres (+ Redis) on host port 15433
 pnpm up
 
 # generate + apply the schema, then the manual RLS/role SQL
@@ -42,7 +42,7 @@ cd apps/mobile && npx expo install && npx expo prebuild
 ```
 
 ## Layout
-See `CLAUDE.md` for the domain canon, RBAC/RLS pattern, labor rules, and the critical gotchas (text FK ids, bare enum names, WSL2 15432 port, R2 deferred).
+See `CLAUDE.md` for the domain canon, RBAC/RLS pattern, labor rules, and the critical gotchas (text FK ids, bare enum names, WSL2 15433 port, R2 deferred).
 
 ## Build
 Feature-by-feature via Archon `piv-system-evolution`, foundational slices first. PRD: in the lwiki vault at `drafts/artifacts/2026-06-04/takt/takt-prd.md`.
