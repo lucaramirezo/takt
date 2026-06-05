@@ -56,7 +56,6 @@ export default [
         Event: 'readonly',
         EventTarget: 'readonly',
         CustomEvent: 'readonly',
-        React: 'readonly',
       },
     },
     plugins: { '@typescript-eslint': tseslint },

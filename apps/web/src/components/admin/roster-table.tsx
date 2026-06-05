@@ -18,7 +18,7 @@ export function RosterTable({ rows }: { rows: RosterOutput }) {
             <TableCell className="text-muted-foreground">{r.email}</TableCell>
             <TableCell>
               <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {r.role.replace('_', ' ')}
+                {r.role.replaceAll('_', ' ')}
               </span>
             </TableCell>
             <TableCell>{r.employmentType ?? 'Not set'}</TableCell>

@@ -15,14 +15,14 @@ export default async function AdminPage() {
   const roster = await serverClient.org.roster()
   const self = roster.find((r) => r.userId === me.userId)
   return (
-    <main className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
       <header>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Roster</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Signed in as {self?.name ?? me.userId} ({me.role.replace('_', ' ')})
+          Signed in as {self?.name ?? me.userId} ({me.role.replaceAll('_', ' ')})
         </p>
       </header>
       <RosterTable rows={roster} />
-    </main>
+    </div>
   )
 }
