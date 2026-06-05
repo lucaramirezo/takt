@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 
 export default async function setup() {
-  const url = process.env.DATABASE_URL ?? 'postgresql://postgres:dev@localhost:15432/takt'
+  const url = process.env.DATABASE_URL ?? 'postgresql://postgres:dev@localhost:15433/takt'
 
   // Step 1: run drizzle migrator to create/update schema (idempotent; drizzle owns migrations)
   const migrationClient = postgres(url, { max: 1 })
