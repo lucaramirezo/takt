@@ -5,7 +5,7 @@ export type MemberRole = z.infer<typeof memberRoleSchema>
 
 export const employmentTypeSchema = z.enum(['hourly', 'salaried', 'contractor'])
 
-/** Server-trusted identity for the active org. No DB call — values come straight from context. */
+/** Server-trusted identity for the active org. Values come straight from context (no DB call). */
 export const MeOutput = z.object({
   userId: z.string(),
   orgId: z.string(),

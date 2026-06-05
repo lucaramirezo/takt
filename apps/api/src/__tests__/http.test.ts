@@ -35,7 +35,7 @@ async function authPost(path: string, body: unknown) {
   return res
 }
 
-// All IDs known at declaration time — afterAll cleanup is unconditional.
+// All IDs known at declaration time; afterAll cleanup is unconditional.
 const orgA = `org_${randomUUID()}`
 const orgB = `org_${randomUUID()}`
 const userB = `user_${randomUUID()}`
@@ -54,7 +54,7 @@ beforeAll(async () => {
   app = buildApp()
   baseUrl = await app.listen({ port: 0, host: '127.0.0.1' }) // Fastify resolves to the full URL string
 
-  // 1. Sign up over Better Auth HTTP — sole purpose: obtain a real session cookie for userA.
+  // 1. Sign up over Better Auth HTTP. Sole purpose: obtain a real session cookie for userA.
   const email = `it_${randomUUID()}@takt.test`
   const signUp = await authPost('/api/auth/sign-up/email', { email, password: 'Sup3rSecret!pw', name: 'IT User' })
   expect(signUp.status).toBe(200)
@@ -65,7 +65,7 @@ beforeAll(async () => {
   await db.insert(organizations).values({ id: orgA, name: 'IT Org', slug: `it-${orgA.slice(-8)}` })
   await db.insert(orgMembers).values({ id: memberA, userId: userA, orgId: orgA, role: 'owner' })
 
-  // 3. Set session's activeOrganizationId directly in the DB — same effect as setActiveOrganization,
+  // 3. Set session's activeOrganizationId directly in the DB: same effect as setActiveOrganization,
   //    avoids the adapter modelName lookup that doesn't resolve in test context.
   await db.update(session).set({ activeOrganizationId: orgA }).where(eq(session.userId, userA))
 
@@ -77,7 +77,7 @@ beforeAll(async () => {
   await db.insert(organizations).values({ id: orgB, name: 'Org B', slug: `org-b-${orgB.slice(-8)}` })
   await db.insert(user).values({ id: userB, name: 'B', email: `${userB}@t.test` })
 
-  // 5. Sign up employee user using raw fetch (separate cookie map — never call storeCookies).
+  // 5. Sign up employee user using raw fetch (separate cookie map; never call storeCookies).
   const signUpEmp = await fetch(`${baseUrl}/api/auth/sign-up/email`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: AUTH_ORIGIN },
@@ -97,7 +97,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.delete(timeEntry).where(eq(timeEntry.orgId, orgA))
   await db.delete(employeeProfile).where(eq(employeeProfile.orgId, orgA))
-  await db.delete(organizations).where(eq(organizations.id, orgB)) // no org members or profile — standalone tenant row
+  await db.delete(organizations).where(eq(organizations.id, orgB)) // no org members or profile; standalone tenant row
   await db.delete(organizations).where(eq(organizations.id, orgA)) // cascades the owner member row + employee member
   if (userA) await db.delete(user).where(eq(user.id, userA))       // cascades session/account
   if (userEmployee) await db.delete(user).where(eq(user.id, userEmployee))
