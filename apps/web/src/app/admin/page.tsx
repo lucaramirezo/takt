@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { serverClient } from '@/lib/orpc-server'
 import { AddEmployeeDialog } from '@/components/admin/add-employee-dialog'
+import { RegisterDeviceDialog } from '@/components/admin/register-device-dialog'
 import { RosterTable } from '@/components/admin/roster-table'
 
 export default async function AdminPage() {
@@ -24,9 +25,12 @@ export default async function AdminPage() {
             Signed in as {self?.name ?? me.userId} ({me.role.replaceAll('_', ' ')})
           </p>
         </div>
-        {(me.role === 'owner' || me.role === 'people_manager') && (
-          <AddEmployeeDialog meRole={me.role} />
-        )}
+        <div className="flex items-center gap-2">
+          <RegisterDeviceDialog />
+          {(me.role === 'owner' || me.role === 'people_manager') && (
+            <AddEmployeeDialog meRole={me.role} />
+          )}
+        </div>
       </header>
       <RosterTable rows={roster} meRole={me.role} />
     </div>
