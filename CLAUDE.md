@@ -66,6 +66,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - `timingSafeEqual` THROWS ON UNEQUAL-LENGTH BUFFERS. Always pass equal-length buffers. When the caller controls `keylen` (e.g. `scryptAsync(input, salt, expected.length)`), lengths are equal by construction: the guard `derived.length === expected.length` is redundant. When the caller does NOT control length (e.g. comparing two user-supplied hex strings), the length guard IS required before calling `timingSafeEqual`.
 - R2 IS DEFERRED: object storage (site-check-in photos) is wired only when the remote-clock photo feature lands (Phase 1). Do not add the aws-sdk dependency until then.
 - UNUSED VARIABLES IN TESTS: prefix with `_` (e.g. `_profileB`): the ESLint `varsIgnorePattern: '^_'` rule suppresses them. Never use `void expr` as a lint workaround.
+- NEXT.JS RSC TYPE NARROWING AFTER `redirect()` / `notFound()`. TypeScript's control-flow analysis treats these calls as type guards and narrows union types on every line that follows. A `me.role` typed as `'owner' | 'manager' | 'people_manager' | 'employee'` is narrowed to `'owner' | 'manager' | 'people_manager'` after `if (me.role === 'employee') redirect('/clock')` -- comparing it against `'employee'` afterward triggers TS2367 ("types have no overlap"). When a belt-and-suspenders check against the excluded variant is intentional, use a widening cast: `(value as string) !== 'employee'`.
 - PNPM WORKSPACE EXPLICIT DEPS. pnpm uses its default isolated (non-hoisted) node_modules, so transitive availability does NOT satisfy a direct import. When any package introduces a new direct `import` from another package (including packages already used transitively by its own deps), add that package explicitly to the importer's `package.json`. Common missed cases: adding a `drizzle-orm` import to a package (e.g. `@takt/auth`) that uses it indirectly; importing `@takt/domain` in a Next.js app whose deps don't list it directly. TypeScript catches this at `check-types` time, but it is faster to add the dep when writing the import.
 - CROSS-TENANT ISOLATION TESTS NEED BOTH SIDES. Tenant isolation assertions must always have a positive side (expected rows ARE present) AND a negative side (other-org rows are absent). A negative-only assertion passes on an empty roster: `expect(rows.every((r) => r.userId !== userB)).toBe(true)` passes when `rows` is `[]`. Required pattern:
   ```ts
@@ -89,6 +90,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
   - **Phosphor audit per generated file:** `grep -rEn "lucide-react" apps/web/src/components/ui` -- replace any lucide import with the Phosphor equivalent. Client `'use client'` ui files use the default Phosphor entry; server components must use `@phosphor-icons/react/dist/ssr`.
   - **React import:** Check generated files AND hand-written `'use client'` files for any `React.*` namespace reference (e.g. `React.ComponentProps`, `React.FormEvent`, `React.ReactNode` without a direct `ReactNode` import) -- add `import * as React from 'react'` if missing. The most common trigger in hand-written components is `React.FormEvent<HTMLFormElement>` in form submit handlers.
   - **Browser globals:** If generated `'use client'` files reference `window`, `document`, `KeyboardEvent`, or other browser globals, add them to the browser globals block in `eslint.config.js` (`globals: { ..., window: 'readonly', document: 'readonly', KeyboardEvent: 'readonly', ... }`).
+  - **Multi-slot layout classes:** For generated components that use CSS grid with `data-slot` attributes (e.g. `alert`, `card`), verify that every sibling slot element carries matching grid-column classes (e.g. `col-start-2`, `group-has-[>svg]/alert:col-start-2`). The CLI may emit the class on `AlertTitle` but omit it from `AlertDescription`, misaligning icon-present layouts. Audit: `grep -n "col-start" apps/web/src/components/ui/<component>.tsx` and confirm every `data-slot` element that should be in column 2 has the class.
   - **SidebarInset is `<main>`:** shadcn's `SidebarInset` component renders as a `<main>` element. Page content wrappers inside `SidebarInset` must use `<div>` (or `<section>`), never another `<main>` -- nested landmarks are invalid HTML5 and a WCAG 2.1 violation.
 
 ### Permission-gated table columns
@@ -116,6 +118,28 @@ function handleOpen(next: boolean) {
 ```
 
 Omitting this causes stale form values when the user cancels and re-opens the dialog.
+
+**One-time-secret dialogs** must also suppress all non-intentional dismiss paths while the secret is visible. `onOpenChange` is not sufficient: `<DialogContent>` fires `onEscapeKeyDown` and `onInteractOutside` independently. Pattern:
+
+```tsx
+<DialogContent
+  onEscapeKeyDown={(e) => { if (secretVisible) e.preventDefault() }}
+  onInteractOutside={(e) => { if (secretVisible) e.preventDefault() }}
+  showCloseButton={!secretVisible}
+>
+```
+
+Where `secretVisible` is the boolean that indicates the secret is currently rendered (e.g. `token !== null`). Without this, Escape or an accidental outside-click closes the dialog before the user has copied the value.
+
+**Copy-to-clipboard buttons** that change to a confirmation state (checkmark, "Copied!") MUST reset after ~2000ms so second-copy attempts receive visual feedback. Use `useEffect` with cleanup to avoid state updates on unmounted components:
+
+```tsx
+useEffect(() => {
+  if (!copied) return
+  const t = setTimeout(() => setCopied(false), 2000)
+  return () => clearTimeout(t)
+}, [copied])
+```
 
 ## Dev
 - FRESH WORKTREE SETUP. When entering a fresh worktree (e.g., one created by Archon), `node_modules` are NOT shared with the main tree. Always run `pnpm install` before any `check-types`, `lint`, or test command. Canonical Task 0 sequence: `pnpm install && pnpm up`, then verify the DB is reachable on 15433 (`pg_isready -h localhost -p 15433`, or if `pg_isready` is absent, a node one-liner: `node --input-type=module -e "import postgres from 'postgres'; const s=postgres(process.env.DATABASE_URL ?? 'postgresql://postgres:dev@localhost:15433/takt',{max:1}); await s.unsafe('select 1'); await s.end()"`), then `pnpm -r check-types && pnpm -r lint`.
