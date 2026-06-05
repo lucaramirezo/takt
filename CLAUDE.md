@@ -71,6 +71,13 @@ ops/            docker-compose (dev + vpsus) + Caddy
 ## Design system (locked)
 "Precision / Takt Grid" personality on the shadcn `luma` preset. Init the admin with `npx shadcn@latest init --preset luma`. Warm-paper light theme (bg `#FBFAF8`, ink `#1A1916`) + andon-orange accent `#E8590C` (live/CTA ONLY, never warning); success `#2F7D54`, warning `#B86E00`, danger `#C0392B`; dark "cockpit" peer theme `#16150F`. Fonts: Space Grotesk (heading) + Inter (body) + JetBrains Mono (all numerics, tabular). Icons: Phosphor (Regular, stroke 1.5), one library only. Tokens are the single source in `@takt/ui-tokens` feeding shadcn-web and NativeWind-native. Full spec: see the lwiki artifact `drafts/artifacts/2026-06-04/takt/design/design-system.md`.
 
+### shadcn CLI — operational facts (verified against luma preset)
+- `npx shadcn@latest init --yes --preset luma` **silently merges** luma vars into `globals.css` — the interactive "overwrite?" prompt never appears with `--yes`. It overwrites `--background`, `--foreground`, `--primary`, `--accent`, `--destructive`, `--font-heading`, and others with luma oklch/font-sans values, while preserving takt-only vars (`--surface`, `--success`, `--warning`, `--danger`).
+- **CSS ordering**: takt palette overrides MUST appear AFTER the luma variable block, not before it. CSS last-declaration wins; inserting before the luma block means luma silently wins. After init, append takt values at the bottom of each CSS block (`:root`, `.dark`).
+- **Font var**: luma overwrites `--font-heading` with `var(--font-sans)`. After init, restore it to `var(--font-space-grotesk)`. Audit with: `grep -n 'font-heading' apps/web/src/app/globals.css`.
+- **`--accent` vs `--primary`**: luma repurposes `--accent` for neutral hover fills (near-white in light, dark gray in dark mode) — NOT the orange brand color. Andon-orange (`#E8590C`) maps to `--primary` (luma's `Button variant="default"` CTA token). NEVER assign orange to `--accent`; it would render near-invisible in light mode and flood hover states.
+- **Post-CLI dep audit** (after any `shadcn init` or `shadcn add`): run `grep -E '"lucide|react-icons|heroicons"' apps/web/package.json` and remove any hit (Phosphor is the only icon library). Also verify `shadcn` is in `devDependencies`, not `dependencies` — it is a scaffolding CLI with no runtime role.
+
 ## Dev
 - `pnpm install` then `pnpm up` (starts Postgres + Redis via `ops/docker-compose.dev.yml`).
 - `pnpm --filter @takt/db db:generate` then `db:migrate`, then apply `packages/db/migrations/manual/*.sql` for RLS + roles.

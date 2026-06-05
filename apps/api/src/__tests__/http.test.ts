@@ -115,4 +115,25 @@ describe('apps/api HTTP boundary', () => {
       }),
     ).rejects.toMatchObject({ cause: { code: '42501' } })
   })
+
+  // Regression: the org plugin's modelName ('orgMembers') must match a drizzleAdapter schema key,
+  // else every org-plugin call throws "model orgMembers not found" -> HTTP 500. The seed-the-DB-directly
+  // tests bypassed these endpoints, so this exercises them over HTTP.
+  it('org-plugin endpoints resolve over HTTP (list + set-active return 200, not 500)', async () => {
+    const listRes = await fetch(`${baseUrl}/api/auth/organization/list`, {
+      headers: { origin: AUTH_ORIGIN, cookie: cookieHeader() },
+    })
+    expect(listRes.status).toBe(200)
+    expect(((await listRes.json()) as { id: string }[]).some((o) => o.id === orgA)).toBe(true)
+
+    const setRes = await authPost('/api/auth/organization/set-active', { organizationId: orgA })
+    expect(setRes.status).toBe(200)
+
+    const [s] = await db
+      .select({ active: session.activeOrganizationId })
+      .from(session)
+      .where(eq(session.userId, userA))
+      .limit(1)
+    expect(s?.active).toBe(orgA)
+  })
 })
