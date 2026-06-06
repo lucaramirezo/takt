@@ -68,7 +68,7 @@ export function PinPad({ worker, onClose, onPunched }: PinPadProps) {
       <DialogContent
         onEscapeKeyDown={(e) => { if (busy) e.preventDefault() }}
         onInteractOutside={(e) => { if (busy) e.preventDefault() }}
-        showCloseButton
+        showCloseButton={!busy}
       >
         <DialogHeader>
           <DialogTitle style={{ fontFamily: 'var(--font-heading)' }}>

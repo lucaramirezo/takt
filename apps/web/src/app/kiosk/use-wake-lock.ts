@@ -5,10 +5,13 @@ import { useEffect, useRef } from 'react'
 export function useWakeLock(): void {
   const sentinel = useRef<WakeLockSentinel | null>(null)
   useEffect(() => {
+    let unmounted = false
     async function acquire() {
       try {
         if ('wakeLock' in navigator) {
-          sentinel.current = await navigator.wakeLock.request('screen')
+          const s = await navigator.wakeLock.request('screen')
+          if (unmounted) { void s.release().catch(() => {}); return }
+          sentinel.current = s
         }
       } catch {
         // wake lock denied (battery saver, unsupported) -> degrade silently
@@ -20,6 +23,7 @@ export function useWakeLock(): void {
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
+      unmounted = true
       document.removeEventListener('visibilitychange', onVisibility)
       void sentinel.current?.release().catch(() => {})
       sentinel.current = null

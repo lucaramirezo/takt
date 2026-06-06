@@ -74,6 +74,7 @@ export default function KioskPage() {
     if (!value) return
     setDeviceToken(value)
     setToken(value)
+    setEnrollInput('')
     setError(null)
     void loadRoster()
   }
