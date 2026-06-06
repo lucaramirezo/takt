@@ -51,6 +51,8 @@ export default [
         window: 'readonly',
         document: 'readonly',
         navigator: 'readonly',
+        localStorage: 'readonly',
+        WakeLockSentinel: 'readonly',
         KeyboardEvent: 'readonly',
         MouseEvent: 'readonly',
         Event: 'readonly',

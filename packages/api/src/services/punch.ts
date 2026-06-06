@@ -1,7 +1,7 @@
 import { ORPCError } from '@orpc/server'
-import { type Database, type OrgCtx, type Tx, employeeProfile, timeEntry, withOrgCtx } from '@takt/db'
-import type { KioskPunchInput, PunchStatusOutput, PunchSubmitInput, PunchSubmitOutput } from '@takt/domain'
-import { and, desc, eq } from 'drizzle-orm'
+import { type Database, type OrgCtx, type Tx, employeeProfile, timeEntry, user, withOrgCtx } from '@takt/db'
+import type { KioskPunchInput, KioskRosterOutput, PunchStatusOutput, PunchSubmitInput, PunchSubmitOutput } from '@takt/domain'
+import { and, asc, desc, eq, isNotNull } from 'drizzle-orm'
 import { verifyPin } from '../lib/crypto'
 
 interface InsertTimeEntryParams {
@@ -126,6 +126,41 @@ export async function submitKioskPunch(db: Database, kiosk: KioskCtx, input: Kio
       capturedAtClient: input.capturedAtClient,
       assignmentId: input.assignmentId,
       deviceId: kiosk.deviceId,
+    }),
+  )
+}
+
+export async function listKioskRoster(db: Database, kiosk: { orgId: string }): Promise<KioskRosterOutput> {
+  // Only active, PIN-enabled workers in THIS org. eq(orgId) is the cross-tenant guard (raw conn, no RLS).
+  const workers = await db
+    .select({ employeeId: employeeProfile.id, name: user.name })
+    .from(employeeProfile)
+    .innerJoin(user, eq(user.id, employeeProfile.userId))
+    .where(
+      and(
+        eq(employeeProfile.orgId, kiosk.orgId),
+        eq(employeeProfile.active, true),
+        isNotNull(employeeProfile.pinHash),
+      ),
+    )
+    .orderBy(asc(user.name))
+  // Per-worker latest state. N+1 over a small roster, run in parallel; refetched on every return-to-grid.
+  return Promise.all(
+    workers.map(async (w) => {
+      const [last] = await db
+        .select({ type: timeEntry.type })
+        .from(timeEntry)
+        .where(and(eq(timeEntry.orgId, kiosk.orgId), eq(timeEntry.employeeId, w.employeeId)))
+        .orderBy(desc(timeEntry.recordedAtServer))
+        .limit(1)
+      const state = !last
+        ? 'clocked_out'
+        : last.type === 'break_start'
+          ? 'on_break'
+          : last.type === 'clock_out'
+            ? 'clocked_out'
+            : 'clocked_in'
+      return { employeeId: w.employeeId, name: w.name, state }
     }),
   )
 }

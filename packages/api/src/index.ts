@@ -1,3 +1,5 @@
 export * from './context'
 export * from './orpc'
 export * from './router'
+export { hashPin, hashDeviceToken } from './lib/crypto'
+export { registerDevice } from './services/device'
