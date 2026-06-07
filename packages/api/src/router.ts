@@ -2,6 +2,7 @@ import {
   EmployeeCreateInput,
   EmployeeCreateOutput,
   KioskPunchInput,
+  KioskRosterOutput,
   MeOutput,
   PunchStatusOutput,
   PunchSubmitInput,
@@ -21,7 +22,7 @@ import { setEmployeePin } from './services/employee'
 import { createEmployee } from './services/employee-create'
 import { setMemberRole } from './services/member'
 import { getRoster } from './services/org'
-import { getPunchStatus, submitKioskPunch, submitPunch } from './services/punch'
+import { getPunchStatus, listKioskRoster, submitKioskPunch, submitPunch } from './services/punch'
 
 const health = pub.handler(() => ({ ok: true as const, service: 'takt-api' as const }))
 
@@ -67,6 +68,10 @@ const punchKiosk = kioskAuthed
     submitKioskPunch(context.db, { orgId: context.orgId, siteId: context.siteId, deviceId: context.deviceId }, input),
   )
 
+const punchKioskRoster = kioskAuthed
+  .output(KioskRosterOutput)
+  .handler(({ context }) => listKioskRoster(context.db, { orgId: context.orgId }))
+
 const deviceRegister = requirePermission('device', 'register')
   .input(RegisterDeviceInput)
   .output(RegisterDeviceOutput)
@@ -99,7 +104,7 @@ export const router = {
   health,
   me,
   org: { roster: orgRoster, member: { setRole: memberSetRole } },
-  time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus } },
+  time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus, kioskRoster: punchKioskRoster } },
   device: { register: deviceRegister },
   employee: { pin: { set: employeePinSet }, create: employeeCreate },
 }

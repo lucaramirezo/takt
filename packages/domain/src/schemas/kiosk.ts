@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PunchSubmitOutput, punchTypeSchema } from './punch'
+import { PunchSubmitOutput, punchStateSchema, punchTypeSchema } from './punch'
 
 const pinSchema = z.string().regex(/^\d{4,6}$/, 'PIN must be 4-6 digits')
 
@@ -26,3 +26,13 @@ export const KioskPunchInput = z.object({
 })
 export type KioskPunchInput = z.infer<typeof KioskPunchInput>
 export { PunchSubmitOutput }
+
+// time.punch.kioskRoster (device-token authed READ; session-less worker grid)
+export const KioskRosterOutput = z.array(
+  z.object({
+    employeeId: z.string().uuid(),
+    name: z.string(),
+    state: punchStateSchema,
+  }),
+)
+export type KioskRosterOutput = z.infer<typeof KioskRosterOutput>
