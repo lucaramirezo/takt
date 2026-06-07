@@ -14,6 +14,8 @@ import {
   SetMemberRoleOutput,
   SetPinInput,
   SetPinOutput,
+  TimesheetGetInput,
+  TimesheetGetOutput,
 } from '@takt/domain'
 import type { MemberRole } from '@takt/domain'
 import { authed, kioskAuthed, pub, requirePermission } from './orpc'
@@ -23,6 +25,7 @@ import { createEmployee } from './services/employee-create'
 import { setMemberRole } from './services/member'
 import { getRoster } from './services/org'
 import { getPunchStatus, listKioskRoster, submitKioskPunch, submitPunch } from './services/punch'
+import { getTimesheet } from './services/timesheet'
 
 const health = pub.handler(() => ({ ok: true as const, service: 'takt-api' as const }))
 
@@ -100,11 +103,18 @@ const memberSetRole = requirePermission('employee', 'manage')
     setMemberRole(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
   )
 
+const timesheetGet = requirePermission('timesheet', 'view')
+  .input(TimesheetGetInput)
+  .output(TimesheetGetOutput)
+  .handler(({ input, context }) =>
+    getTimesheet(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
+  )
+
 export const router = {
   health,
   me,
   org: { roster: orgRoster, member: { setRole: memberSetRole } },
-  time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus, kioskRoster: punchKioskRoster } },
+  time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus, kioskRoster: punchKioskRoster }, timesheet: { get: timesheetGet } },
   device: { register: deviceRegister },
   employee: { pin: { set: employeePinSet }, create: employeeCreate },
 }
