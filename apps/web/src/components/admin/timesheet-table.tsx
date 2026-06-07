@@ -106,14 +106,13 @@ export function TimesheetTable({
       let totalBreakMs = 0
       let firstIn = daySessions[0]!.clockIn.recordedAtServer
       let lastOut: string | null = null
-      let punchCount = 0
+      const punchCount = empEntries.filter(
+        (e) =>
+          dayKey(e.recordedAtServer) === day &&
+          (e.type === 'clock_in' || e.type === 'clock_out' || e.type === 'break_start' || e.type === 'break_end'),
+      ).length
 
       for (const s of daySessions) {
-        punchCount += empEntries.filter(
-          (e) =>
-            dayKey(e.recordedAtServer) === day &&
-            (e.type === 'clock_in' || e.type === 'clock_out' || e.type === 'break_start' || e.type === 'break_end'),
-        ).length
         if (new Date(s.clockIn.recordedAtServer).getTime() < new Date(firstIn).getTime()) {
           firstIn = s.clockIn.recordedAtServer
         }

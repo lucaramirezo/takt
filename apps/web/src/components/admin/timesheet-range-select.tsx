@@ -11,6 +11,12 @@ const PRESETS = [
   { label: 'Last 30 days', days: 30 },
 ]
 
+function detectPresetDays(from: string, to: string): string {
+  const diffDays = Math.round((new Date(to).getTime() - new Date(from).getTime()) / (24 * 3600 * 1000))
+  const match = PRESETS.find((p) => p.days === diffDays)
+  return match ? String(match.days) : '14'
+}
+
 export function TimesheetRangeSelect({
   employees,
   selectedEmployeeId,
@@ -41,9 +47,14 @@ export function TimesheetRangeSelect({
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  const currentDays =
+    searchParams.get('from') && searchParams.get('to')
+      ? detectPresetDays(searchParams.get('from')!, searchParams.get('to')!)
+      : '14'
+
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Select onValueChange={handleRangeChange} defaultValue="14">
+      <Select onValueChange={handleRangeChange} value={currentDays}>
         <SelectTrigger className="w-40">
           <SelectValue placeholder="Date range" />
         </SelectTrigger>
