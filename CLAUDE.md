@@ -67,6 +67,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - TEST-SEEDING RE-EXPORTS: When a package's `index.ts` must re-export an internal helper (e.g., `hashPin`, `hashDeviceToken`, `registerDevice`) solely to enable HTTP integration test seeding, annotate each re-export with `/** @internal - test seeding only; prefer the service-layer procedure in application code */`. This signals to future consumers that the export is not a stable API surface.
 - R2 IS DEFERRED: object storage (site-check-in photos) is wired only when the remote-clock photo feature lands (Phase 1). Do not add the aws-sdk dependency until then.
 - UNUSED VARIABLES IN TESTS: prefix with `_` (e.g. `_profileB`): the ESLint `varsIgnorePattern: '^_'` rule suppresses them. Never use `void expr` as a lint workaround.
+- FORWARD-COMPAT COMPONENT PROPS: When a prop is included in a component's type signature for future use but is not rendered in the current slice, prefix the destructured binding with `_` (e.g. `_range`) and add a single-line comment: `// forward-compat: render when <feature> lands`. This prevents lint noise, signals intent to reviewers, and avoids fabricated UI.
 - NEXT.JS RSC TYPE NARROWING AFTER `redirect()` / `notFound()`. TypeScript's control-flow analysis treats these calls as type guards and narrows union types on every line that follows. A `me.role` typed as `'owner' | 'manager' | 'people_manager' | 'employee'` is narrowed to `'owner' | 'manager' | 'people_manager'` after `if (me.role === 'employee') redirect('/clock')` -- comparing it against `'employee'` afterward triggers TS2367 ("types have no overlap"). When a belt-and-suspenders check against the excluded variant is intentional, use a widening cast: `(value as string) !== 'employee'`.
 - PNPM WORKSPACE EXPLICIT DEPS. pnpm uses its default isolated (non-hoisted) node_modules, so transitive availability does NOT satisfy a direct import. When any package introduces a new direct `import` from another package (including packages already used transitively by its own deps), add that package explicitly to the importer's `package.json`. Common missed cases: adding a `drizzle-orm` import to a package (e.g. `@takt/auth`) that uses it indirectly; importing `@takt/domain` in a Next.js app whose deps don't list it directly. TypeScript catches this at `check-types` time, but it is faster to add the dep when writing the import.
 - CROSS-TENANT ISOLATION TESTS NEED BOTH SIDES. Tenant isolation assertions must always have a positive side (expected rows ARE present) AND a negative side (other-org rows are absent). A negative-only assertion passes on an empty roster: `expect(rows.every((r) => r.userId !== userB)).toBe(true)` passes when `rows` is `[]`. Required pattern:
@@ -154,6 +155,20 @@ useEffect(() => {
 }, [copied])
 ```
 
+### Controlled select components (URL / router state)
+
+When a `<Select>` (or any dropdown) reflects URL state (from `useSearchParams`, a parent passing `searchParams`, or any value that changes between renders: back-nav, shared URL, server re-fetch), it MUST be controlled. Use `value={current}`, not `defaultValue`. An uncontrolled `defaultValue` is fixed at mount and ignores all subsequent state changes.
+
+Pattern:
+```tsx
+// Derive from live search params, not from a constant default
+const current = searchParams.get('days') ?? '14'
+// ...
+<Select value={current} onValueChange={handleChange}>
+```
+
+Every `<Select>` in an admin filter UI that writes to `router.push` must also read back from `useSearchParams` as its `value` source. `defaultValue` is only correct for truly uncontrolled inputs (one-shot forms, no URL binding).
+
 ## Dev
 - FRESH WORKTREE SETUP. When entering a fresh worktree (e.g., one created by Archon), `node_modules` are NOT shared with the main tree. Always run `pnpm install` before any `check-types`, `lint`, or test command. Canonical Task 0 sequence: `pnpm install && pnpm up`, then verify the DB is reachable on 15433 (`pg_isready -h localhost -p 15433`, or if `pg_isready` is absent, a node one-liner: `node --input-type=module -e "import postgres from 'postgres'; const s=postgres(process.env.DATABASE_URL ?? 'postgresql://postgres:dev@localhost:15433/takt',{max:1}); await s.unsafe('select 1'); await s.end()"`), then `pnpm -r check-types && pnpm -r lint`.
 - `pnpm install` then `pnpm up` (starts Postgres + Redis via `ops/docker-compose.dev.yml`).
@@ -177,6 +192,7 @@ useEffect(() => {
   ```
   Without this guard, the cleanup runs (nulling the ref), the `await` then resolves and overwrites the ref, and the sentinel/subscription is never cleaned up.
 - **Intentional tradeoffs:** When an implementation accepts a known inefficiency or non-obvious constraint (e.g., N+1 queries accepted for correctness at small scale, a manual workaround for a library bug), add a single inline comment stating the alternative and why it was deferred: `// N+1 over roster; acceptable at kiosk scale. Alt: selectDistinctOn left-join when >50 workers.` This is the category of "WHY is non-obvious" that warrants a comment.
+- **Aggregate table columns: hoist group-level filters.** When a table row aggregates over a nested collection (e.g. punches over sessions, sessions over days), compute the group-level aggregate ONCE before entering inner loops. A filter or count expression placed inside `for (const item of group)` runs once per group member and multiplies the result. Pattern: `const dayPunchCount = allEntries.filter(e => dayKey(e) === day).length` declared before the session loop, not inside it.
 
 ## Build process
 Built feature-by-feature via the Archon `piv-system-evolution` PIV loop (plan -> implement -> validate, four human gates -> draft PR). Foundational slices (data model, roles, RLS) land before clock modes; geofence + overtime features get the heaviest gate scrutiny. Decompose work into PR-sized GitHub issues. See the PRD: `drafts/artifacts/2026-06-04/takt/takt-prd.md` in the lwiki vault.
