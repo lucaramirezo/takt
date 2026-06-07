@@ -64,6 +64,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
 - TURBO PACKAGE-SPECIFIC TASK ENTRIES FULLY REPLACE THE BASE PIPELINE TASK. A `"@pkg#task"` entry in `turbo.json` overrides (does not merge with) the base `"task"` pipeline entry. Any `dependsOn` from the base task is silently dropped unless re-declared explicitly. When adding a package-specific `dependsOn` (e.g. for test serialization), always re-declare `"^build"` too: `"@takt/api-server#test": { "dependsOn": ["^build", "@takt/api#test"] }`. Omitting `"^build"` passes today only if all deps happen to be built transitively by another task: a coincidence that breaks silently when dep trees diverge.
 - CRYPTO HELPERS IN `lib/crypto.ts` ARE THE SINGLE SOURCE. Never inline `createHash`, `scrypt`, or `randomBytes` logic in service or builder files: always import and call the named helper (e.g. `hashDeviceToken(token)`, not `createHash('sha256').update(token).digest('hex')`). This prevents algorithm drift between the storage and lookup sides.
 - `timingSafeEqual` THROWS ON UNEQUAL-LENGTH BUFFERS. Always pass equal-length buffers. When the caller controls `keylen` (e.g. `scryptAsync(input, salt, expected.length)`), lengths are equal by construction: the guard `derived.length === expected.length` is redundant. When the caller does NOT control length (e.g. comparing two user-supplied hex strings), the length guard IS required before calling `timingSafeEqual`.
+- TEST-SEEDING RE-EXPORTS: When a package's `index.ts` must re-export an internal helper (e.g., `hashPin`, `hashDeviceToken`, `registerDevice`) solely to enable HTTP integration test seeding, annotate each re-export with `/** @internal - test seeding only; prefer the service-layer procedure in application code */`. This signals to future consumers that the export is not a stable API surface.
 - R2 IS DEFERRED: object storage (site-check-in photos) is wired only when the remote-clock photo feature lands (Phase 1). Do not add the aws-sdk dependency until then.
 - UNUSED VARIABLES IN TESTS: prefix with `_` (e.g. `_profileB`): the ESLint `varsIgnorePattern: '^_'` rule suppresses them. Never use `void expr` as a lint workaround.
 - NEXT.JS RSC TYPE NARROWING AFTER `redirect()` / `notFound()`. TypeScript's control-flow analysis treats these calls as type guards and narrows union types on every line that follows. A `me.role` typed as `'owner' | 'manager' | 'people_manager' | 'employee'` is narrowed to `'owner' | 'manager' | 'people_manager'` after `if (me.role === 'employee') redirect('/clock')` -- comparing it against `'employee'` afterward triggers TS2367 ("types have no overlap"). When a belt-and-suspenders check against the excluded variant is intentional, use a widening cast: `(value as string) !== 'employee'`.
@@ -89,7 +90,7 @@ ops/            docker-compose (dev + vpsus) + Caddy
   - **Transitive components:** `shadcn add <X>` resolves transitive deps silently (e.g. `sidebar` pulls tooltip, sheet, skeleton, use-mobile). Re-run the Phosphor icon audit on ALL generated files, not just the ones you explicitly named.
   - **Phosphor audit per generated file:** `grep -rEn "lucide-react" apps/web/src/components/ui` -- replace any lucide import with the Phosphor equivalent. Client `'use client'` ui files use the default Phosphor entry; server components must use `@phosphor-icons/react/dist/ssr`.
   - **React import:** Check generated files AND hand-written `'use client'` files for any `React.*` namespace reference (e.g. `React.ComponentProps`, `React.FormEvent`, `React.ReactNode` without a direct `ReactNode` import) -- add `import * as React from 'react'` if missing. The most common trigger in hand-written components is `React.FormEvent<HTMLFormElement>` in form submit handlers.
-  - **Browser globals:** If generated `'use client'` files reference `window`, `document`, `KeyboardEvent`, or other browser globals, add them to the browser globals block in `eslint.config.js` (`globals: { ..., window: 'readonly', document: 'readonly', KeyboardEvent: 'readonly', ... }`).
+  - **Browser globals:** If generated `'use client'` files reference `window`, `document`, `KeyboardEvent`, or other browser globals, add them to the browser globals block in `eslint.config.js` (`globals: { ..., window: 'readonly', document: 'readonly', KeyboardEvent: 'readonly', ... }`). ESLint `no-undef` is syntax-level and flags any identifier it does not recognise, including type-parameter positions such as `useRef<WakeLockSentinel | null>` or `useRef<AbortController | null>`. TypeScript-only type usages are NOT exempt. When introducing a new browser API as either a value or a type, add it to the globals block.
   - **Multi-slot layout classes:** For generated components that use CSS grid with `data-slot` attributes (e.g. `alert`, `card`), verify that every sibling slot element carries matching grid-column classes (e.g. `col-start-2`, `group-has-[>svg]/alert:col-start-2`). The CLI may emit the class on `AlertTitle` but omit it from `AlertDescription`, misaligning icon-present layouts. Audit: `grep -n "col-start" apps/web/src/components/ui/<component>.tsx` and confirm every `data-slot` element that should be in column 2 has the class.
   - **SidebarInset is `<main>`:** shadcn's `SidebarInset` component renders as a `<main>` element. Page content wrappers inside `SidebarInset` must use `<div>` (or `<section>`), never another `<main>` -- nested landmarks are invalid HTML5 and a WCAG 2.1 violation.
 
@@ -119,7 +120,7 @@ function handleOpen(next: boolean) {
 
 Omitting this causes stale form values when the user cancels and re-opens the dialog.
 
-**One-time-secret dialogs** must also suppress all non-intentional dismiss paths while the secret is visible. `onOpenChange` is not sufficient: `<DialogContent>` fires `onEscapeKeyDown` and `onInteractOutside` independently. Pattern:
+**One-time-secret dialogs** must also suppress all non-intentional dismiss paths while the secret is visible. `onOpenChange` is not sufficient: `<DialogContent>` has THREE independent dismiss paths - (1) Escape key (`onEscapeKeyDown`), (2) outside click (`onInteractOutside`), and (3) the X button (`showCloseButton`). All three must be guarded consistently; missing any one allows dismissal through that channel alone. Pattern:
 
 ```tsx
 <DialogContent
@@ -130,6 +131,18 @@ Omitting this causes stale form values when the user cancels and re-opens the di
 ```
 
 Where `secretVisible` is the boolean that indicates the secret is currently rendered (e.g. `token !== null`). Without this, Escape or an accidental outside-click closes the dialog before the user has copied the value.
+
+**Busy-guard dialogs** (any dialog where a network request or async action is in flight) follow the same three-path rule. Guard with the action-in-flight flag instead of `secretVisible`:
+
+```tsx
+<DialogContent
+  onEscapeKeyDown={(e) => { if (busy) e.preventDefault() }}
+  onInteractOutside={(e) => { if (busy) e.preventDefault() }}
+  showCloseButton={!busy}
+>
+```
+
+Without all three guards, clicking X while `busy=true` calls `onOpenChange(false)` directly, bypassing the Escape/outside-click handlers. The background promise then resolves against an unmounted component.
 
 **Copy-to-clipboard buttons** that change to a confirmation state (checkmark, "Copied!") MUST reset after ~2000ms so second-copy attempts receive visual feedback. Use `useEffect` with cleanup to avoid state updates on unmounted components:
 
@@ -149,6 +162,21 @@ useEffect(() => {
 - `pnpm check-types` and `pnpm lint` must pass before any commit. When changes touch `apps/web`, also run `pnpm --filter @takt/web build`: Next.js build failures are not caught by `check-types` or `pnpm test`.
 - Before any commit, verify no em-dashes (U+2014) were introduced in any changed file: `git diff --name-only origin/main..HEAD | while read f; do [ -f "$f" ] && grep -Hn -P "\x{2014}" "$f"; done`. Expect zero hits. A directory-scoped grep misses em-dashes in test files, schema comments, and other paths outside the named dirs.
 - Before implementing any feature, run `pnpm check-types && pnpm lint` and note any pre-existing failures. Fix pre-existing failures in a separate commit before the feature work begins; do NOT widen their fix beyond the minimum required to make the baseline green.
+- **Async effect cancel pattern:** When an `async` function is called inside a `useEffect` and the result is written back to a ref or state, guard against the component having unmounted before the `await` resolves. Use an `unmounted` flag:
+  ```ts
+  useEffect(() => {
+    let unmounted = false
+    async function run() {
+      const result = await someAsyncOp()
+      if (unmounted) { result?.cleanup?.(); return }
+      ref.current = result
+    }
+    void run()
+    return () => { unmounted = true; ref.current?.release?.() }
+  }, [])
+  ```
+  Without this guard, the cleanup runs (nulling the ref), the `await` then resolves and overwrites the ref, and the sentinel/subscription is never cleaned up.
+- **Intentional tradeoffs:** When an implementation accepts a known inefficiency or non-obvious constraint (e.g., N+1 queries accepted for correctness at small scale, a manual workaround for a library bug), add a single inline comment stating the alternative and why it was deferred: `// N+1 over roster; acceptable at kiosk scale. Alt: selectDistinctOn left-join when >50 workers.` This is the category of "WHY is non-obvious" that warrants a comment.
 
 ## Build process
 Built feature-by-feature via the Archon `piv-system-evolution` PIV loop (plan -> implement -> validate, four human gates -> draft PR). Foundational slices (data model, roles, RLS) land before clock modes; geofence + overtime features get the heaviest gate scrutiny. Decompose work into PR-sized GitHub issues. See the PRD: `drafts/artifacts/2026-06-04/takt/takt-prd.md` in the lwiki vault.
