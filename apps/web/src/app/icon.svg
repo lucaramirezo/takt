@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#16150F"/>
+  <!-- lowercase "t": short ascender, crossbar near top, foot curving right at the base -->
+  <path d="M11 7
+           a2 2 0 0 1 4 0
+           v11
+           a2.4 2.4 0 0 0 2.4 2.4
+           h1.2
+           a2 2 0 0 1 0 4
+           h-1.2
+           a6.4 6.4 0 0 1 -6.4 -6.4
+           z"
+        fill="#FBFAF8"/>
+  <rect x="6.4" y="10.4" width="11.2" height="3.8" rx="1.9" fill="#FBFAF8"/>
+  <circle cx="24.2" cy="22.6" r="3" fill="#E8590C"/>
+</svg>
