@@ -9,6 +9,7 @@ import {
   PunchSubmitOutput,
   RegisterDeviceInput,
   RegisterDeviceOutput,
+  RemoteAssignmentOutput,
   RosterOutput,
   SetMemberRoleInput,
   SetMemberRoleOutput,
@@ -19,6 +20,7 @@ import {
 } from '@takt/domain'
 import type { MemberRole } from '@takt/domain'
 import { authed, kioskAuthed, pub, requirePermission } from './orpc'
+import { getActiveAssignment } from './services/assignment'
 import { registerDevice } from './services/device'
 import { setEmployeePin } from './services/employee'
 import { createEmployee } from './services/employee-create'
@@ -110,11 +112,22 @@ const timesheetGet = requirePermission('timesheet', 'view')
     getTimesheet(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
   )
 
+// Worker-facing: any member may read THEIR OWN active remote assignment (self-scoped by ctx.userId).
+const assignmentActive = authed
+  .output(RemoteAssignmentOutput)
+  .handler(({ context }) =>
+    getActiveAssignment(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }),
+  )
+
 export const router = {
   health,
   me,
   org: { roster: orgRoster, member: { setRole: memberSetRole } },
-  time: { punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus, kioskRoster: punchKioskRoster }, timesheet: { get: timesheetGet } },
+  time: {
+    punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus, kioskRoster: punchKioskRoster },
+    timesheet: { get: timesheetGet },
+    assignment: { active: assignmentActive },
+  },
   device: { register: deviceRegister },
   employee: { pin: { set: employeePinSet }, create: employeeCreate },
 }

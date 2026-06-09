@@ -166,3 +166,57 @@ body {
     @apply font-sans;
   }
 }
+
+/*
+ * takt pulse: the "live cadence" breathing on live indicators (the brand's andon heartbeat).
+ * Both dots animate currentColor, so the parent's color drives the ring (success in zone, andon-orange out).
+ */
+@keyframes takt-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 50%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 12px color-mix(in oklch, currentColor 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, currentColor 0%, transparent);
+  }
+}
+
+.takt-live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: takt-pulse 2s ease-out infinite;
+}
+
+.takt-live-dot.is-alert {
+  animation-duration: 1s;
+}
+
+/* Worker location marker on the geofence map (leaflet divIcon host + pulsing dot). */
+.takt-geo-marker {
+  background: transparent;
+  border: 0;
+}
+
+.takt-geo-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 4px;
+  border-radius: 9999px;
+  color: var(--dot, #2f7d54);
+  background: currentColor;
+  border: 2px solid var(--card);
+  animation: takt-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .takt-live-dot,
+  .takt-geo-dot {
+    animation: none;
+  }
+}

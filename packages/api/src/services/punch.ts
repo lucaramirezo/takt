@@ -1,8 +1,9 @@
 import { ORPCError } from '@orpc/server'
-import { type Database, type OrgCtx, type Tx, employeeProfile, timeEntry, user, withOrgCtx } from '@takt/db'
+import { type Database, type OrgCtx, type Tx, assignment, employeeProfile, geofence, timeEntry, user, withOrgCtx } from '@takt/db'
 import type { KioskPunchInput, KioskRosterOutput, PunchStatusOutput, PunchSubmitInput, PunchSubmitOutput } from '@takt/domain'
 import { and, asc, desc, eq, isNotNull } from 'drizzle-orm'
 import { verifyPin } from '../lib/crypto'
+import { haversineMeters } from '../lib/geo'
 
 interface InsertTimeEntryParams {
   orgId: string
@@ -16,6 +17,10 @@ interface InsertTimeEntryParams {
   deviceId?: string
   nfcTagId?: string
   photoRef?: string
+  /** Geofence evaluation (remote punches only). When inZone is false the entry is flagged out_of_zone. */
+  inZone?: boolean
+  geofenceIdEval?: string
+  status?: 'valid' | 'flagged'
 }
 
 /** Idempotent, append-only time_entry insert. Caller supplies the resolved employeeId + source. Runs inside withOrgCtx. */
@@ -37,6 +42,9 @@ export async function insertTimeEntry(tx: Tx, p: InsertTimeEntryParams): Promise
       deviceId: p.deviceId,
       nfcTagId: p.nfcTagId,
       photoRef: p.photoRef,
+      inZone: p.inZone,
+      geofenceIdEval: p.geofenceIdEval,
+      status: p.status,
     })
     .onConflictDoNothing({ target: timeEntry.clientUuid })
     .returning()
@@ -46,13 +54,55 @@ export async function insertTimeEntry(tx: Tx, p: InsertTimeEntryParams): Promise
     row = existing
   }
   if (!row) throw new ORPCError('CONFLICT', { message: 'client_uuid already used in another organization' })
+  // Derive irregularities from the persisted row so idempotent replays return the same verdict.
+  const irregularities = row.inZone === false ? ['out_of_zone'] : []
   return {
     entryId: row.id,
     recordedAtServer: row.recordedAtServer.toISOString(),
     inZone: row.inZone ?? null,
     status: row.status,
-    irregularities: [],
+    irregularities,
   }
+}
+
+/**
+ * Evaluate a remote punch against the worker's active geofence.
+ * Returns the zone verdict, or undefined when no location / no geofenced remote assignment applies.
+ * Must run inside the same withOrgCtx tx so the assignment + geofence reads are RLS-scoped.
+ */
+async function evaluateRemoteZone(
+  tx: Tx,
+  employeeId: string,
+  source: PunchSubmitInput['source'],
+  location: PunchSubmitInput['location'],
+  requestedAssignmentId: string | undefined,
+): Promise<{ inZone: boolean; geofenceIdEval: string; assignmentId: string } | undefined> {
+  if (source !== 'remote' || !location) return undefined
+  // When the client names an assignment, pin to it AND scope by employeeId so a foreign/other-worker
+  // id resolves no row (ownership validation). Otherwise fall back to the worker's latest geofenced one.
+  const filters = [
+    eq(assignment.employeeId, employeeId),
+    eq(assignment.remoteOpsEnabled, true),
+    isNotNull(assignment.geofenceId),
+    ...(requestedAssignmentId ? [eq(assignment.id, requestedAssignmentId)] : []),
+  ]
+  const [zone] = await tx
+    .select({
+      assignmentId: assignment.id,
+      geofenceId: geofence.id,
+      centerLat: geofence.centerLat,
+      centerLng: geofence.centerLng,
+      radiusM: geofence.radiusM,
+    })
+    .from(assignment)
+    .innerJoin(geofence, eq(geofence.id, assignment.geofenceId))
+    .where(and(...filters))
+    // Deterministic total order: the map (getActiveAssignment) and this verdict must resolve the SAME row.
+    .orderBy(desc(assignment.createdAt), desc(assignment.id))
+    .limit(1)
+  if (!zone) return undefined
+  const distanceM = haversineMeters(location.lat, location.lng, zone.centerLat, zone.centerLng)
+  return { inZone: distanceM <= zone.radiusM, geofenceIdEval: zone.geofenceId, assignmentId: zone.assignmentId }
 }
 
 export async function submitPunch(db: Database, ctx: OrgCtx, input: PunchSubmitInput): Promise<PunchSubmitOutput> {
@@ -63,6 +113,7 @@ export async function submitPunch(db: Database, ctx: OrgCtx, input: PunchSubmitI
       .where(and(eq(employeeProfile.userId, ctx.userId), eq(employeeProfile.orgId, ctx.orgId)))
       .limit(1)
     if (!profile) throw new ORPCError('NOT_FOUND', { message: 'No employee profile for this user in the active organization' })
+    const zone = await evaluateRemoteZone(tx, profile.id, input.source, input.location, input.assignmentId)
     return insertTimeEntry(tx, {
       orgId: ctx.orgId,
       employeeId: profile.id,
@@ -70,11 +121,16 @@ export async function submitPunch(db: Database, ctx: OrgCtx, input: PunchSubmitI
       type: input.type,
       source: input.source,
       capturedAtClient: input.capturedAtClient,
-      assignmentId: input.assignmentId,
+      // Store the server-resolved assignment so assignmentId always matches geofenceIdEval; for
+      // non-remote / unevaluated punches keep the client value (unchanged behavior).
+      assignmentId: zone?.assignmentId ?? input.assignmentId,
       location: input.location,
       deviceId: input.deviceId,
       nfcTagId: input.nfcTagId,
       photoRef: input.photoRef,
+      inZone: zone?.inZone,
+      geofenceIdEval: zone?.geofenceIdEval,
+      status: zone && !zone.inZone ? 'flagged' : undefined,
     })
   })
 }
