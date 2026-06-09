@@ -1,6 +1,6 @@
 'use client'
 
-import type { TimesheetEmployee, TimesheetEntryRow } from '@takt/domain'
+import { ORG_DISPLAY_TZ, type TimesheetEmployee, type TimesheetEntryRow } from '@takt/domain'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface Session {
@@ -24,8 +24,9 @@ export function TimesheetTable({
   employees: TimesheetEmployee[]
   range: { from: string; to: string }
 }) {
-  // Browser-local zone. Future: resolve org-configured IANA zone here when org.timezone lands.
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  // Shared org zone (NOT browser-local) so the timesheet and the exceptions inbox bucket days
+  // identically. Future: resolve a per-org IANA zone when org.timezone lands.
+  const tz = ORG_DISPLAY_TZ
   const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz })
 
   function dayKey(ts: string): string {

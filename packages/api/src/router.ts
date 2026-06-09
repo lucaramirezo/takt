@@ -1,6 +1,8 @@
 import {
   EmployeeCreateInput,
   EmployeeCreateOutput,
+  IrregularityListInput,
+  IrregularityListOutput,
   KioskPunchInput,
   KioskRosterOutput,
   MeOutput,
@@ -22,6 +24,7 @@ import type { MemberRole } from '@takt/domain'
 import { authed, kioskAuthed, pub, requirePermission } from './orpc'
 import { getActiveAssignment } from './services/assignment'
 import { registerDevice } from './services/device'
+import { getIrregularities } from './services/irregularity'
 import { setEmployeePin } from './services/employee'
 import { createEmployee } from './services/employee-create'
 import { setMemberRole } from './services/member'
@@ -119,6 +122,14 @@ const assignmentActive = authed
     getActiveAssignment(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }),
   )
 
+// Manager-facing exceptions inbox: detected over the punch stream (owner/manager/people_manager).
+const irregularityList = requirePermission('irregularity', 'read')
+  .input(IrregularityListInput)
+  .output(IrregularityListOutput)
+  .handler(({ input, context }) =>
+    getIrregularities(context.db, { orgId: context.orgId, userId: context.userId, memberRole: context.memberRole }, input),
+  )
+
 export const router = {
   health,
   me,
@@ -127,6 +138,7 @@ export const router = {
     punch: { submit: punchSubmit, kiosk: punchKiosk, status: punchStatus, kioskRoster: punchKioskRoster },
     timesheet: { get: timesheetGet },
     assignment: { active: assignmentActive },
+    irregularity: { list: irregularityList },
   },
   device: { register: deviceRegister },
   employee: { pin: { set: employeePinSet }, create: employeeCreate },
